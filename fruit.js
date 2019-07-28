@@ -7,6 +7,10 @@
 		var _this = this;
 		var options = options || {};
 
+		/**
+		 * public variables
+		 */
+
 		this.container = options.container || document.body;
 		this.width = options.width || _this.container.offsetWidth;
 		this.height = options.height || _this.container.offsetHeight;
@@ -21,7 +25,12 @@
 		this.cameraFov = options.cameraFov || 75;
 		this.minPolarAngle = options.minPolarAngle || 0.001;
 		this.maxPolarAngle = options.maxPolarAngle || Math.PI - 0.001;
-		this.buttons = options.buttons || {};
+		this.buttons = options.buttons || [];
+		this.SVGDirectory = options.SVGDirectory || '/svg/';
+
+		/**
+		 * private variables
+		 */
 
 		var renderer = new THREE.WebGLRenderer({alpha:true});
 		var scene = new THREE.Scene();
@@ -47,6 +56,11 @@
 			lat:0,
 			startLat:0
 		};
+		var zoomingActions = {
+			isZoomingPlus:false,
+			isZoomingMinus:false,
+			fingersDistance:0
+		};
 		var intersectionActions = {
 			startX:0,
 			startY:0,
@@ -56,11 +70,19 @@
 			isMoving:false
 		};
 		var buttons = {
-			goBack:null,
-			zoom:null,
+			zoomPlus:null,
+			zoomMinus:null,
 			autoRotate:null,
-			fullScreen:null
+			fullScreen:null,
+			goBack:null
 		};
+		var buttonsActions = {
+			autoRotate:_this.autoRotate
+		};
+
+		/**
+		 * create default elements
+		 */
 
 		function createBackground() {
 			if (_this.background === undefined)
@@ -77,47 +99,58 @@
 		function createButtons() {
 			var container = document.createElement('div');
 			container.className = 'fruitpano-buttons';
-			// go back
-			var goBack = document.createElement('a');
-			goBack.className = 'fruitpano-goback';
-			goBack.innerHTML = 'go back';
-			goBack.style.display = 'none';
-			buttons.goBack = goBack;
-			container.appendChild(goBack);
 			// zoom
-			if (_this.buttons.zoom){
+			if (_this.buttons.indexOf('zoom') !== - 1){
+				// plus
 				var btn = document.createElement('a');
-				btn.className = 'fruitpano-zoom';
-				btn.innerHTML = 'zoom';
-				buttons.zoom = btn;
+				btn.className = 'fruitpano-zoom-plus';
+				btn.innerHTML = '<img src="' + _this.SVGDirectory + 'search-plus.svg">';
+				buttons.zoomPlus = btn;
+				container.appendChild(btn);
+				// minus
+				var btn = document.createElement('a');
+				btn.className = 'fruitpano-zoom-minus';
+				btn.innerHTML = '<img src="' + _this.SVGDirectory + 'search-minus.svg">';
+				buttons.zoomMinus = btn;
 				container.appendChild(btn);
 			}
 			// auto rotate
-			if (_this.buttons.autoRotate){
+			if (_this.buttons.indexOf('autoRotate') !== - 1){
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-autorotate';
-				btn.innerHTML = 'auto rotate';
+				btn.innerHTML = '<img src="' + _this.SVGDirectory + 'redo-alt.svg">';
 				buttons.autoRotate = btn;
 				container.appendChild(btn);
 			}
 			// full screen
-			if (_this.buttons.fullScreen){
+			if (_this.buttons.indexOf('fullScreen') !== - 1){
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-fullscreen';
-				btn.innerHTML = 'full screen';
+				btn.innerHTML = '<img src="' + _this.SVGDirectory + 'expand.svg">';
 				buttons.fullScreen = btn;
 				container.appendChild(btn);
 			}
+			// go back
+			var goBack = document.createElement('a');
+			goBack.className = 'fruitpano-goback';
+			goBack.innerHTML = '<img src="' + _this.SVGDirectory + 'sign-out-alt.svg">';
+			goBack.style.display = 'none';
+			buttons.goBack = goBack;
+			container.appendChild(goBack);
 			_this.container.appendChild(container);
 		}
+
+		/**
+		 * functions for initializing
+		 */
 
 		this.addToInit = function() {};
 		this.addToRender = function() {};
 
 		this.init = function() {
 			_this.container.innerHTML = '';
+			_this.container.className = 'fruitpano-container'
 			renderer.setSize(_this.width, _this.height);
-			//renderer.setClearColor(0x000000, 0);
 			_this.container.appendChild(renderer.domElement);
 			THEFRUIT.add(_this.SPHERES, _this.OTHERS);
 			scene.add(THEFRUIT);
@@ -125,15 +158,26 @@
 			createButtons();
 			_this.addToInit();
 			window.addEventListener('resize', onResize);
-			_this.container.addEventListener('mousedown', onPointerStart);
-			_this.container.addEventListener('mousemove', onPointerMove);
-			_this.container.addEventListener('mouseup', onPointerEnd);
-			_this.container.addEventListener('mouseleave', onPointerEnd);
-			_this.container.addEventListener('touchstart', onPointerStart);
-			_this.container.addEventListener('touchmove', onPointerMove);
-			_this.container.addEventListener('touchend', onPointerEnd);
+			renderer.domElement.addEventListener('mousedown', onMouseDown);
+			renderer.domElement.addEventListener('mousemove', onMouseMove);
+			renderer.domElement.addEventListener('mouseup', onMouseUp);
+			renderer.domElement.addEventListener('mouseleave', onMouseUp);
+			renderer.domElement.addEventListener('touchstart', onTouchStart);
+			renderer.domElement.addEventListener('touchmove', onTouchMove);
+			renderer.domElement.addEventListener('touchend', onTouchEnd);
 			_this.container.addEventListener('fruitpanoInTheSphere', onInTheSphere);
 			_this.container.addEventListener('fruitpanoOutTheSphere', onOutTheSphere);
+			if (_this.buttons.indexOf('zoom') !== - 1){
+				buttons.zoomPlus.addEventListener('click', onClickZoomPlus);
+				buttons.zoomMinus.addEventListener('click', onClickZoomMinus);
+
+			}
+			if (_this.buttons.indexOf('autoRotate') !== - 1){
+				buttons.autoRotate.addEventListener('click', onClickAutoRotate);
+			}
+			if (_this.buttons.indexOf('fullScreen') !== - 1){
+				buttons.fullScreen.addEventListener('click', onClickFullScreen);
+			}
 			buttons.goBack.addEventListener('click', onClickGoBack);
 			render();
 		};
@@ -141,7 +185,7 @@
 		function render() {
 			requestAnimationFrame(render);
 			TWEEN.update();
-			if (!rotationActions.isActive && _this.autoRotate && intersectionActions.autoRotate){
+			if (!rotationActions.isActive && _this.autoRotate && intersectionActions.autoRotate && buttonsActions.autoRotate){
 				rotationActions.lon += _this.autoRotateSpeed;
 			}
 			if (!intersectionActions.isMoving){
@@ -155,6 +199,14 @@
 					camera.position.z + cameraLookAt.z
 				);
 			}
+			if (zoomingActions.isZoomingPlus && camera.fov > 10){
+				camera.fov -= 1;
+				camera.updateProjectionMatrix();
+			}
+			if (zoomingActions.isZoomingMinus && camera.fov < 100){
+				camera.fov += 1;
+				camera.updateProjectionMatrix();
+			}
 			camera.lookAt(cameraLookAt);
 			raycaster.setFromCamera(pointer, camera);
 			var intersect = raycaster.intersectObjects(_this.SPHERES.children);
@@ -167,6 +219,10 @@
 			renderer.render(scene, camera);
 		}
 
+		/**
+		 * resize event
+		 */
+
 		function onResize() {
 			_this.width = options.width || _this.container.offsetWidth;
 			_this.height = options.height || _this.container.offsetHeight;
@@ -175,22 +231,60 @@
 			camera.updateProjectionMatrix();
 		}
 
-		function onPointerStart(e) {
-			var _e = 'ontouchstart' in window ? e.touches[0] : e;
-			handleRotationPointerStart(_e);
-			handleIntersectionPointerStart(_e);
+		/**
+		 * mouse events
+		 */
+
+		function onMouseDown(e) {
+			handleRotationPointerStart(e);
+			handleIntersectionPointerStart(e);
 		}
 
-		function onPointerMove(e) {
-			var _e = 'ontouchstart' in window ? e.touches[0] : e;
-			handleRotationPointerMove(_e);
-			handleIntersectionPointerMove(_e);
+		function onMouseMove(e) {
+			handleRotationPointerMove(e);
+			handleIntersectionPointerMove(e);
 		}
 
-		function onPointerEnd() {
+		function onMouseUp() {
 			handleRotationPointerEnd();
-			handleIntersectionPointerEnd();
+			if (intersectionActions.startX == intersectionActions.moveX || intersectionActions.startY == intersectionActions.moveY)
+				handleIntersectionPointerEnd();
 		}
+
+		/**
+		 * touch events
+		 */
+
+		function onTouchStart(e) {
+			switch (e.touches.length){
+				case 1:
+					handleRotationPointerStart(e.touches[0]);
+				break;
+				case 2:
+					handleZoomingTouchStart(e.touches);
+				break;
+			}
+		}
+
+		function onTouchMove(e) {
+			switch (e.touches.length){
+				case 1:
+					handleRotationPointerMove(e.touches[0]);
+				break;
+				case 2:
+					handleZoomingTouchMove(e.touches);
+				break;
+			}
+		}
+
+		function onTouchEnd() {
+			handleRotationPointerEnd();
+			handleZoomingTouchEnd();
+		}
+
+		/**
+		 * custom events
+		 */
 
 		function onInTheSphere() {
 			inTheSphere = true;
@@ -201,6 +295,10 @@
 			inTheSphere = false;
 			buttons.goBack.style.display = 'none';
 		}
+
+		/**
+		 * rotation events handlers
+		 */
 
 		function handleRotationPointerStart(e) {
 			if (intersectionActions.isMoving)
@@ -227,6 +325,45 @@
 			rotationActions.isActive = false;
 		}
 
+		/**
+		 * zooming events handlers
+		 */
+
+		function handleZoomingTouchStart(touches) {
+			if (touches.length != 2)
+				return;
+			var dx = touches[0].clientX - touches[1].clientX;
+			var dy = touches[0].clientY - touches[1].clientY;
+			zoomingActions.fingersDistance = Math.sqrt(dx ** 2 + dy ** 2);
+		}
+
+		function handleZoomingTouchMove(touches) {
+			if (touches.length != 2)
+				return;
+			var dx = touches[0].clientX - touches[1].clientX;
+			var dy = touches[0].clientY - touches[1].clientY;
+			var distance = Math.sqrt(dx ** 2 + dy ** 2);
+			if (distance < zoomingActions.fingersDistance){
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = true;
+			} else {
+				zoomingActions.isZoomingMinus = false;
+				zoomingActions.isZoomingPlus = true;
+			}
+			zoomingActions.fingersDistance = distance;
+		}
+
+		function handleZoomingTouchEnd() {
+			zoomingActions.isZoomingPlus = false;
+			zoomingActions.isZoomingMinus = false;
+		}
+
+		function handleZoomingMouseWheel(e) {}
+
+		/**
+		 * intersection events handlers
+		 */
+
 		function handleIntersectionPointerStart(e) {
 			var bounding = e.target.getBoundingClientRect();
 			var offsetX = e.clientX - bounding.left;
@@ -246,8 +383,6 @@
 		}
 
 		function handleIntersectionPointerEnd() {
-			if (intersectionActions.startX != intersectionActions.moveX || intersectionActions.startY != intersectionActions.moveY)
-				return;
 			if (!INTERSECTED || inTheSphere)
 				return;
 			if (INTERSECTED && _this.autoRotate){
@@ -290,6 +425,61 @@
 				_this.container.dispatchEvent(fruitpanoInTheSphere);
 			})
 			.start();
+		}
+
+		/**
+		 * buttons events
+		 */
+
+		function onClickZoomPlus(e) {
+			e.preventDefault();
+			zoomingActions.isZoomingPlus = true;
+			setTimeout(function() {
+				zoomingActions.isZoomingPlus = false;
+			}, 400);
+		}
+
+		function onClickZoomMinus(e) {
+			e.preventDefault();
+			zoomingActions.isZoomingMinus = true;
+			setTimeout(function() {
+				zoomingActions.isZoomingMinus = false;
+			}, 400);
+		}
+
+		function onClickAutoRotate(e) {
+			e.preventDefault();
+			if (!_this.autoRotate){
+				_this.autoRotate = true;
+				intersectionActions.autoRotate = _this.autoRotate;
+			}
+			if (buttonsActions.autoRotate)
+				buttonsActions.autoRotate = false;
+			else
+				buttonsActions.autoRotate = true;
+		}
+
+		function onClickFullScreen(e) {
+			e.preventDefault();
+			if (document.fullscreenElement){
+				if (document.exitFullscreen)
+					document.exitFullscreen();
+				else if (document.webkitExitFullscreen)
+					document.webkitExitFullscreen();
+				else if (document.mozCancelFullScreen)
+					document.mozCancelFullScreen();
+				else if (document.msExitFullscreen)
+					document.msExitFullscreen();
+			} else {
+				if (_this.container.requestFullscreen)
+					_this.container.requestFullscreen();
+				else if (_this.container.webkitRequestFullscreen)
+					_this.container.webkitRequestFullscreen();
+				else if (_this.container.mozRequestFullscreen)
+					_this.container.mozRequestFullscreen();
+				else if (_this.container.msRequestFullscreen)
+					_this.container.msRequestFullscreen();
+			}
 		}
 
 		function onClickGoBack(e) {
@@ -337,6 +527,10 @@
 			})
 			.start();
 		}
+
+		/**
+		 *
+		 */
 
 		Object.defineProperties(this, {
 			changeCameraDistance:{
@@ -501,9 +695,24 @@
 	CUSTOMPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
 	CUSTOMPANORAMA.prototype.constructor = CUSTOMPANORAMA;
 
+	/**
+	 * GEOMETRIES
+	 */
+
+	function CherryLeafGeometry(radius, segments) {
+		var leaf = new THREE.Shape();
+		leaf.moveTo(0, 1 * radius);
+		leaf.bezierCurveTo(0.1 * radius, 0.5 * radius, 0.7 * radius, -0.5 * radius, 0, -1 * radius);
+		leaf.bezierCurveTo(-0.7 * radius, -0.5 * radius, -0.1 * radius, 0.5 * radius, 0, 1 * radius);
+		var geometry = new THREE.ShapeGeometry(leaf, segments);
+		return geometry;
+	}
+
 	window.FRUITPANORAMA = {};
 	window.FRUITPANORAMA.GRAPE = GRAPEPANORAMA;
 	window.FRUITPANORAMA.CHERRY = CHERRYPANORAMA;
 	window.FRUITPANORAMA.CUSTOM = CUSTOMPANORAMA;
+	window.FRUITPANORAMA.Geometries = {};
+	window.FRUITPANORAMA.Geometries.CherryLeaf = CherryLeafGeometry;
 
 })(THREE, TWEEN);
