@@ -17,15 +17,18 @@
 		this.images = options.images || [];
 		this.background = options.background;
 		this.segments = options.segments || 20;
-		this.cameraDistance = options.cameraDistance || 10;
+		this.cameraDistance = options.cameraDistance ? parseInt(options.cameraDistance * 10) / 10 : 10;
 		this.autoRotate = options.autoRotate === undefined ? true : options.autoRotate;
-		this.autoRotateSpeed = options.autoRotateSpeed || 0.001;
-		this.rotationSpeed = options.rotationSpeed || 0.005;
+		this.autoRotateSpeed = options.autoRotateSpeed ? parseInt(options.autoRotateSpeed * 1000) / 1000 : 0.001;
+		this.rotationSpeed = options.rotationSpeed ? parseInt(options.rotationSpeed * 1000) / 1000 : 0.005;
 		this.cameraSpeed = options.cameraSpeed || 2000;
 		this.cameraFov = options.cameraFov || 75;
-		this.minPolarAngle = options.minPolarAngle || 0.001;
-		this.maxPolarAngle = options.maxPolarAngle || Math.PI - 0.001;
-		this.buttons = options.buttons || [];
+		this.zoomSpeed = options.zoomSpeed ? parseInt(options.zoomSpeed * 1000) / 1000 : 0.01;
+		this.zoomMin = options.zoomMin ? parseInt(options.zoomMin * 100) / 100 : 0.4;
+		this.zoomMax = options.zoomMax ? parseInt(options.zoomMax * 100) / 100 : 4;
+		this.minPolarAngle = options.minPolarAngle ? parseInt(options.minPolarAngle * 1000) / 1000 : 0.001;
+		this.maxPolarAngle = options.maxPolarAngle ? parseInt(options.maxPolarAngle * 1000) / 1000 : Math.PI - 0.001;
+		this.buttons = options.buttons || ['zoom', 'autoRotate', 'fullScreen'];
 		this.SVGDirectory = options.SVGDirectory || '/svg/';
 
 		/**
@@ -38,7 +41,7 @@
 		var THEFRUIT = new THREE.Object3D();
 		var INTERSECTED = null;
 		var SPHERES = new THREE.Object3D();
-		var OTHERS = new THREE.Object3D();
+		var EXTRAS = new THREE.Object3D();
 
 		var cameraLookAt = new THREE.Vector3();
 		var cameraDistance = _this.cameraDistance;
@@ -152,7 +155,7 @@
 			_this.container.className = 'fruitpano-container'
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
-			THEFRUIT.add(_this.SPHERES, _this.OTHERS);
+			THEFRUIT.add(_this.SPHERES, _this.EXTRAS);
 			scene.add(THEFRUIT);
 			createBackground();
 			createButtons();
@@ -162,6 +165,7 @@
 			renderer.domElement.addEventListener('mousemove', onMouseMove);
 			renderer.domElement.addEventListener('mouseup', onMouseUp);
 			renderer.domElement.addEventListener('mouseleave', onMouseUp);
+			renderer.domElement.addEventListener('wheel', handleZoomingMouseWheel);
 			renderer.domElement.addEventListener('touchstart', onTouchStart);
 			renderer.domElement.addEventListener('touchmove', onTouchMove);
 			renderer.domElement.addEventListener('touchend', onTouchEnd);
@@ -199,12 +203,12 @@
 					camera.position.z + cameraLookAt.z
 				);
 			}
-			if (zoomingActions.isZoomingPlus && camera.fov > 10){
-				camera.fov -= 1;
+			if (zoomingActions.isZoomingPlus){
+				camera.zoom = THREE.Math.clamp(camera.zoom + _this.zoomSpeed, _this.zoomMin, _this.zoomMax);
 				camera.updateProjectionMatrix();
 			}
-			if (zoomingActions.isZoomingMinus && camera.fov < 100){
-				camera.fov += 1;
+			if (zoomingActions.isZoomingMinus){
+				camera.zoom = THREE.Math.clamp(camera.zoom - _this.zoomSpeed, _this.zoomMin, _this.zoomMax);
 				camera.updateProjectionMatrix();
 			}
 			camera.lookAt(cameraLookAt);
@@ -358,7 +362,19 @@
 			zoomingActions.isZoomingMinus = false;
 		}
 
-		function handleZoomingMouseWheel(e) {}
+		function handleZoomingMouseWheel(e) {
+			if (e.deltaY < 0){
+				zoomingActions.isZoomingPlus = true;
+				zoomingActions.isZoomingMinus = false;
+			} else if (e.deltaY > 0){
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = true;
+			}
+			setTimeout(function() {
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = false;
+			}, 200);
+		}
 
 		/**
 		 * intersection events handlers
@@ -539,6 +555,13 @@
 				},
 				writeable:false
 			},
+			updateAutoRotate:{
+				value:function() {
+					intersectionActions.autoRotate = _this.autoRotate;
+					buttonsActions.autoRotate = _this.autoRotate;
+				},
+				writeable:false
+			},
 			camera:{
 				get:function() {
 					return camera;
@@ -549,9 +572,9 @@
 					return SPHERES;
 				}
 			},
-			OTHERS:{
+			EXTRAS:{
 				get:function() {
-					return OTHERS;
+					return EXTRAS;
 				}
 			},
 			INTERSECTED:{
@@ -571,7 +594,9 @@
 
 		var _this = this;
 		FRUITPANORAMA.call(this, options);
-		this.branchTexture = options.branchTexture;
+		this.branchColor = options.branchColor || 'brown';
+		this.leafColor = options.leafColor || 'green';
+		this.enableLeaf = options.enableLeaf === undefined ? true : options.enableLeaf;
 
 		var rowsOfGrapes = Math.sqrt(_this.images.length);
 
@@ -604,22 +629,35 @@
 		}
 		function createBranch() {
 			var geometry = new THREE.TorusGeometry(4, 0.1, _this.segments, _this.segments, Math.PI / 4);
-			var material = new THREE.MeshBasicMaterial();
-			if (_this.branchTexture !== undefined){
-				material.map = new THREE.TextureLoader().load(_this.branchTexture);
-			}
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.branchColor)
+			});
 			var branch1 = new THREE.Mesh(geometry, material);
 			branch1.position.x = -4;
 			var branch2 = new THREE.Mesh(geometry, material);
 			branch2.position.set(-2, 0.7, -3.3);
 			branch2.rotation.set(1, 0, 1);
-			_this.OTHERS.add(branch1, branch2);
+			_this.EXTRAS.add(branch1, branch2);
+		}
+		function createLeaf() {
+			if (!_this.enableLeaf)
+				return;
+			var geometry = new GrapeLeafGeometry(1, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.leafColor),
+				side:THREE.DoubleSide
+			});
+			var leaf = new THREE.Mesh(geometry, material);
+			leaf.position.set(-0.3, 2.1, 0.7);
+			leaf.rotation.set(2.6, 0, -0.7);
+			_this.EXTRAS.add(leaf);
 		}
 		this.addToInit = function() {
 			createGrapes();
 			createBranch();
+			createLeaf();
 			_this.SPHERES.position.y = - 1;
-			_this.OTHERS.position.y = rowsOfGrapes - 2;
+			_this.EXTRAS.position.y = rowsOfGrapes - 2;
 		}
 
 	}
@@ -635,12 +673,18 @@
 
 		var _this = this;
 		FRUITPANORAMA.call(this, options);
-		this.branchTexture = options.branchTexture;
+		this.branchColor = options.branchColor || 'brown';
+		this.leafColor = options.leafColor || 'green';
+		this.enableLeaf = options.enableLeaf === undefined ? true : options.enableLeaf;
 
 		var nOfCherries = _this.images.length;
 		var distance = 0.1;
 
 		function createCherry() {
+			if (nOfCherries > 3){
+				console.error('');
+				return false;
+			}
 			for (var i = 0; i < nOfCherries; i++){
 				var geometry = new THREE.SphereGeometry(1, _this.segments, _this.segments);
 				var material = new THREE.MeshBasicMaterial();
@@ -660,23 +704,41 @@
 		function createBranch() {
 			for (var i = 0; i < nOfCherries; i++){
 				var geometry = new THREE.TorusGeometry(4, 0.1, _this.segments, _this.segments, Math.PI / 4);
-				var material = new THREE.MeshBasicMaterial();
-				if (_this.branchTexture !== undefined){
-					material.map = new THREE.TextureLoader().load(_this.branchTexture);
-				}
+				var material = new THREE.MeshBasicMaterial({
+					color:new THREE.Color(_this.branchColor)
+				});
 				var branch = new THREE.Mesh(geometry, material);
 				var radius = (nOfCherries == 1 ? 0 : 2 / (2 * Math.sin(Math.PI / nOfCherries)) + distance) - 4;
 				var phi = 1.5 * Math.PI;
 				var theta = (2 * Math.PI / nOfCherries) * i + (Math.PI / 2);
 				branch.position.setFromSphericalCoords(radius, phi, theta);
 				branch.rotation.y = ((Math.PI * 2) / nOfCherries * i) + Math.PI;
-				_this.OTHERS.add(branch);
+				_this.EXTRAS.add(branch);
 			}
+		}
+
+		function createLeaf() {
+			if (!_this.enableLeaf)
+				return;
+			var geometry = new CherryLeafGeometry(1, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.leafColor),
+				side:THREE.DoubleSide
+			});
+			var leaf = new THREE.Mesh(geometry, material);
+			leaf.position.x = 1;
+			leaf.position.y = 2.5;
+			leaf.position.z = 0.3;
+			leaf.rotation.x = 2.6;
+			leaf.rotation.y = 0;
+			leaf.rotation.z = -1.2;
+			_this.EXTRAS.add(leaf);
 		}
 
 		this.addToInit = function() {
 			createCherry();
 			createBranch();
+			createLeaf();
 		};
 
 	}
@@ -699,7 +761,26 @@
 	 * GEOMETRIES
 	 */
 
+	function GrapeLeafGeometry(radius, segments) {
+		var radius = radius || 1;
+		var segments = segments || 10;
+		var leaf = new THREE.Shape();
+		leaf.moveTo(0, 1 * radius);
+		leaf.bezierCurveTo(0, 0.9 * radius, 0.4 * radius, 0.8 * radius, 0.5 * radius, 0.4 * radius);
+		leaf.bezierCurveTo(0.6 * radius, 0.5 * radius, 0.8 * radius, 0.55 * radius, 1 * radius, 0.6 * radius);
+		leaf.bezierCurveTo(1.1 * radius, 0.5 * radius, 1.4 * radius, -0.9 * radius, 0.5 * radius, -1 * radius);
+		leaf.bezierCurveTo(0.2 * radius, -1 * radius, 0.2 * radius, -0.8 * radius, 0, -0.8 * radius);
+		leaf.bezierCurveTo(-0.2 * radius, -0.8 * radius, -0.2 * radius, -1 * radius, -0.5 * radius, -1 * radius);
+		leaf.bezierCurveTo(-1.4 * radius, -0.9 * radius, -1.1 * radius, 0.5 * radius, -1 * radius, 0.6 * radius);
+		leaf.bezierCurveTo(-0.8 * radius, 0.55 * radius, -0.6 * radius, 0.5 * radius, -0.5 * radius, 0.4 * radius);
+		leaf.bezierCurveTo(-0.4 * radius, 0.8 * radius, 0, 0.9 * radius, 0, 1 * radius);
+		var geometry = new THREE.ShapeGeometry(leaf, segments);
+		return geometry;
+	}
+
 	function CherryLeafGeometry(radius, segments) {
+		var radius = radius || 1;
+		var segments = segments || 10;
 		var leaf = new THREE.Shape();
 		leaf.moveTo(0, 1 * radius);
 		leaf.bezierCurveTo(0.1 * radius, 0.5 * radius, 0.7 * radius, -0.5 * radius, 0, -1 * radius);
@@ -713,6 +794,7 @@
 	window.FRUITPANORAMA.CHERRY = CHERRYPANORAMA;
 	window.FRUITPANORAMA.CUSTOM = CUSTOMPANORAMA;
 	window.FRUITPANORAMA.Geometries = {};
+	window.FRUITPANORAMA.Geometries.GrapeLeaf = GrapeLeafGeometry;
 	window.FRUITPANORAMA.Geometries.CherryLeaf = CherryLeafGeometry;
 
 })(THREE, TWEEN);
