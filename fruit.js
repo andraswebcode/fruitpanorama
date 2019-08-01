@@ -48,8 +48,8 @@
 		var pointer = new THREE.Vector2(200, 200);
 		var raycaster = new THREE.Raycaster();
 		var inTheSphere = false;
-		var fruitpanoInTheSphere = new Event('fruitpanoInTheSphere');
-		var fruitpanoOutTheSphere = new Event('fruitpanoOutTheSphere');
+		var fruitpanoInTheSphere = createEvent('fruitpanoInTheSphere');
+		var fruitpanoOutTheSphere = createEvent('fruitpanoOutTheSphere');
 		var rotationActions = {
 			isActive:false,
 			startX:0,
@@ -338,7 +338,7 @@
 				return;
 			var dx = touches[0].clientX - touches[1].clientX;
 			var dy = touches[0].clientY - touches[1].clientY;
-			zoomingActions.fingersDistance = Math.sqrt(dx ** 2 + dy ** 2);
+			zoomingActions.fingersDistance = Math.sqrt(dx * dx + dy * dy);
 		}
 
 		function handleZoomingTouchMove(touches) {
@@ -346,7 +346,7 @@
 				return;
 			var dx = touches[0].clientX - touches[1].clientX;
 			var dy = touches[0].clientY - touches[1].clientY;
-			var distance = Math.sqrt(dx ** 2 + dy ** 2);
+			var distance = Math.sqrt(dx * dx + dy * dy);
 			if (distance < zoomingActions.fingersDistance){
 				zoomingActions.isZoomingPlus = false;
 				zoomingActions.isZoomingMinus = true;
@@ -542,6 +542,21 @@
 				_this.container.dispatchEvent(fruitpanoOutTheSphere);
 			})
 			.start();
+		}
+
+		/**
+		 * create event for IE11
+		 */
+
+		function createEvent(name) {
+			var event;
+			if (typeof Event === 'function'){
+				event = new Event(name);
+			} else {
+				event = document.createEvent('Event');
+				event.initEvent(name, true, true);
+			}
+			return event;
 		}
 
 		/**
