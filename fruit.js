@@ -143,6 +143,17 @@
 			_this.container.appendChild(container);
 		}
 
+		this.createFruit = function(nthImg) {
+			var geometry = new THREE.SphereGeometry(1, _this.segments, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				side:THREE.DoubleSide
+			});
+			if (_this.images[nthImg]){
+				material.map = new THREE.TextureLoader().load(_this.images[nthImg]);
+			}
+			return new THREE.Mesh(geometry, material);
+		}
+
 		/**
 		 * functions for initializing
 		 */
@@ -625,13 +636,7 @@
 			for (var i = 0; i < rowsOfGrapes; i++){
 				var numOfGrapesInRow = i * 2 + 1;
 				for (var j = 0; j < numOfGrapesInRow; j++){
-					var geometry = new THREE.SphereGeometry(1, _this.segments, _this.segments);
-					var material = new THREE.MeshBasicMaterial();
-					material.side = THREE.DoubleSide;
-					if (_this.images[nth]){
-						material.map = new THREE.TextureLoader().load(_this.images[nth]);
-					}
-					var grape = new THREE.Mesh(geometry, material);
+					var grape = _this.createFruit(nth);
 					var radius = numOfGrapesInRow == 1 ? 0 : 2 / (2 * Math.sin(Math.PI / numOfGrapesInRow));
 					var phi = 1.5 * Math.PI;
 					var theta = (2 * Math.PI / numOfGrapesInRow) * j;
@@ -701,13 +706,7 @@
 				return false;
 			}
 			for (var i = 0; i < nOfCherries; i++){
-				var geometry = new THREE.SphereGeometry(1, _this.segments, _this.segments);
-				var material = new THREE.MeshBasicMaterial();
-				material.side = THREE.DoubleSide;
-				if (_this.images[i]){
-					material.map = new THREE.TextureLoader().load(_this.images[i]);
-				}
-				var cherry = new THREE.Mesh(geometry, material);
+				var cherry = _this.createFruit(i);
 				var radius = nOfCherries == 1 ? 0 : 2 / (2 * Math.sin(Math.PI / nOfCherries)) + distance;
 				var phi = 1.5 * Math.PI;
 				var theta = (2 * Math.PI / nOfCherries) * i + (Math.PI / 2);
@@ -718,7 +717,7 @@
 
 		function createBranch() {
 			for (var i = 0; i < nOfCherries; i++){
-				var geometry = new THREE.TorusGeometry(4, 0.1, _this.segments, _this.segments, Math.PI / 4);
+				var geometry = new THREE.TorusGeometry(4, 0.1, _this.segments, _this.segments, Math.PI / 6);
 				var material = new THREE.MeshBasicMaterial({
 					color:new THREE.Color(_this.branchColor)
 				});
@@ -727,6 +726,7 @@
 				var phi = 1.5 * Math.PI;
 				var theta = (2 * Math.PI / nOfCherries) * i + (Math.PI / 2);
 				branch.position.setFromSphericalCoords(radius, phi, theta);
+				branch.rotation.z = 0.25;
 				branch.rotation.y = ((Math.PI * 2) / nOfCherries * i) + Math.PI;
 				_this.EXTRAS.add(branch);
 			}
@@ -745,8 +745,11 @@
 			leaf.position.y = 2.5;
 			leaf.position.z = 0.3;
 			leaf.rotation.x = 2.6;
-			leaf.rotation.y = 0;
 			leaf.rotation.z = -1.2;
+			if (_this.images.length === 1){
+				leaf.position.x = 0.1;
+				leaf.rotation.y = Math.PI;
+			}
 			_this.EXTRAS.add(leaf);
 		}
 
@@ -762,11 +765,89 @@
 	CHERRYPANORAMA.prototype.constructor = CHERRYPANORAMA;
 
 	/**
+	 * THE FRUITBOWLPANORAMA
+	 */
+
+	function FRUITBOWLPANORAMA(options) { //supported numbers: 3 4 5 9 12
+		var _this = this;
+		FRUITPANORAMA.call(this, options);
+		this.bowlColor = options.bowlColor || 'brown';
+		this.bowlTexture = options.bowlTexture || '';
+
+		var countImgs = _this.images.length;
+		var from3To5 = countImgs > 2 && countImgs < 6;
+		var divBy3 = countImgs % 3 === 0;
+		var numOfFruitsInRow1, numOfFruitsInRow2;
+		if (from3To5){
+			numOfFruitsInRow1 = countImgs;
+			numOfFruitsInRow2 = 0;
+		}
+		if (!from3To5 && divBy3){
+			numOfFruitsInRow1 = countImgs * (2 / 3);
+			numOfFruitsInRow2 = countImgs * (1 / 3);
+		}
+
+		function createFruits() {
+			if (!from3To5 && !divBy3){
+				console.error('');
+				return false;
+			}
+			var nth = 0;
+			for (var i = 0; i < numOfFruitsInRow1; i++){
+				var fruit = _this.createFruit(nth);
+				var radius = 2 / (2 * Math.sin(Math.PI / numOfFruitsInRow1));
+				var phi = 1.5 * Math.PI;
+				var theta = (2 * Math.PI / numOfFruitsInRow1) * i;
+				fruit.position.setFromSphericalCoords(radius, phi, theta);
+				_this.SPHERES.add(fruit);
+				nth++;
+			}
+			if (!numOfFruitsInRow2)
+				return;
+			for (var i = 0; i < numOfFruitsInRow2; i++){
+				var fruit = _this.createFruit(nth);
+				var radius = 2 / (2 * Math.sin(Math.PI / numOfFruitsInRow2));
+				var phi = 1.5 * Math.PI;
+				var theta = ((2 * Math.PI / numOfFruitsInRow2) * i) + 0.5;
+				fruit.position.setFromSphericalCoords(radius, phi, theta);
+				fruit.position.y = 1.65;
+				_this.SPHERES.add(fruit);
+				nth++;
+			}
+		}
+
+		function createBowl() {
+			var radius = ((2 / (2 * Math.sin(Math.PI / numOfFruitsInRow1))) / 2) + 0.5;
+			var geometry = new BowlGeometry(radius, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				side:THREE.DoubleSide,
+				color:new THREE.Color(_this.bowlColor)
+			});
+			if (_this.bowlTexture){
+				material.map = new THREE.TextureLoader().load(_this.bowlTexture);
+			}
+			var bowl = new THREE.Mesh(geometry, material);
+			var posY = - ((numOfFruitsInRow1 - 2) * 0.2 + 1.2);
+			bowl.position.y = posY; // 3 1.4, 4 1.6
+			_this.EXTRAS.add(bowl);
+		}
+
+		this.addToInit = function() {
+			createFruits();
+			createBowl();
+		}
+	}
+
+	FRUITBOWLPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	FRUITBOWLPANORAMA.prototype.constructor = FRUITBOWLPANORAMA;
+
+	/**
 	 * THE CUSTOMPANORAMA
 	 */
 
 	function CUSTOMPANORAMA(options) {
-		FRUITPANORAMA.call(this);
+		var _this = this;
+		FRUITPANORAMA.call(this, options);
 	}
 
 	CUSTOMPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
@@ -804,12 +885,28 @@
 		return geometry;
 	}
 
+	function BowlGeometry(radius, segments) {
+		var radius = radius || 1;
+		var segments = segments || 10;
+		var points = [
+			new THREE.Vector2(0, 0),
+			new THREE.Vector2(1 * radius, 0)
+		];
+		for (var i = 0; i < 8; i++){
+			points.push(new THREE.Vector2(Math.sin(i * 0.2) * (1.5 * radius) + radius, (i + radius) * (0.15 * radius)));
+		}
+		var bowl = new THREE.LatheGeometry(points, segments);
+		return bowl;
+	}
+
 	window.FRUITPANORAMA = {};
 	window.FRUITPANORAMA.GRAPE = GRAPEPANORAMA;
 	window.FRUITPANORAMA.CHERRY = CHERRYPANORAMA;
+	window.FRUITPANORAMA.FRUITBOWL = FRUITBOWLPANORAMA;
 	window.FRUITPANORAMA.CUSTOM = CUSTOMPANORAMA;
 	window.FRUITPANORAMA.Geometries = {};
 	window.FRUITPANORAMA.Geometries.GrapeLeaf = GrapeLeafGeometry;
 	window.FRUITPANORAMA.Geometries.CherryLeaf = CherryLeafGeometry;
+	window.FRUITPANORAMA.Geometries.Bowl = BowlGeometry;
 
 })(THREE, TWEEN);
