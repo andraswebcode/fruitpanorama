@@ -856,21 +856,63 @@
 		var options = options || {};
 		FRUITPANORAMA.call(this, options);
 		this.fruitsPositions = options.fruitsPositions || [];
+		this.extras = options.extras || [];
 
 		function createFruits() {
 			for (var i = 0; i < _this.images.length; i++){
 				var fruit = _this.createFruit(i);
 				if (_this.fruitsPositions[i]){
-					fruit.position.x = _this.fruitsPositions[i].x;
-					fruit.position.y = _this.fruitsPositions[i].y;
-					fruit.position.z = _this.fruitsPositions[i].z;
+					fruit.position.x = _this.fruitsPositions[i][0];
+					fruit.position.y = _this.fruitsPositions[i][1];
+					fruit.position.z = _this.fruitsPositions[i][2];
 				}
 				_this.SPHERES.add(fruit);
 			}
 		}
 
+		function createExtras() {
+			var choices = geometryChoices();
+			var extras = _this.extras;
+			for (var i = 0; i < extras.length; i++){
+				var geometry = choices[extras[i].geometry];
+				var geometry = new geometry(1, _this.segments);
+				var material = new THREE.MeshBasicMaterial({
+					side:THREE.DoubleSide
+				});
+				if (extras[i].color){
+					material.color = new THREE.Color(extras[i].color);
+				}
+				if (extras[i].texture){
+					material.color = new THREE.Color(1, 1, 1);
+					material.map = new THREE.TextureLoader().load(extras[i].texture);
+				}
+				var mesh = new THREE.Mesh(geometry, material);
+				mesh.name = extras[i].name;
+				mesh.position.x = extras[i].position[0];
+				mesh.position.y = extras[i].position[1];
+				mesh.position.z = extras[i].position[2];
+				mesh.rotation.x = extras[i].rotation[0];
+				mesh.rotation.y = extras[i].rotation[1];
+				mesh.rotation.z = extras[i].rotation[2];
+				mesh.scale.x = extras[i].scale[0];
+				mesh.scale.y = extras[i].scale[1];
+				mesh.scale.z = extras[i].scale[2];
+				_this.EXTRAS.add(mesh);
+			}
+		}
+
+		function geometryChoices() {
+			var choices = {
+				grapeLeaf:GrapeLeafGeometry,
+				cherryLeaf:CherryLeafGeometry,
+				bowl:BowlGeometry
+			};
+			return choices;
+		}
+
 		this.addToInit = function() {
 			createFruits();
+			createExtras();
 		}
 
 	}
