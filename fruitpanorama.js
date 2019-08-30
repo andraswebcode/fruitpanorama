@@ -108,7 +108,7 @@
 			if (autoRotate && !rotationActions.isActive){
 				rotationActions.theta += _this.autoRotateSpeed * 0.001;
 			}
-			if (!intersectionActions.isMoving){
+			if (!intersectionActions.isMoving && _this.enableRotation){
 				var phi = (Math.PI / 2) - rotationActions.phi;
 				var phi = Math.max(_this.minPolarAngle, Math.min(_this.maxPolarAngle, phi));
 				camera.position.setFromSphericalCoords(cameraDistance, phi, rotationActions.theta);
@@ -467,6 +467,16 @@
 		 */
 
 		Object.defineProperties(this, {
+			renderer:{
+				get:function() {
+					return renderer;
+				}
+			},
+			scene:{
+				get:function() {
+					return scene;
+				}
+			},
 			camera:{
 				get:function() {
 					return camera;
@@ -535,6 +545,27 @@
 					mesh.material.map = null;
 					mesh.material.needsUpdate = true;
 					mesh.material.color = new THREE.Color(color);
+				}
+			},
+			setEventListeners:{
+				value:function(add) {
+					if (add){
+						renderer.domElement.addEventListener('mousedown', onMouseDown);
+						renderer.domElement.addEventListener('mousemove', onMouseMove);
+						renderer.domElement.addEventListener('mouseup', onMouseUp);
+						renderer.domElement.addEventListener('mouseleave', onMouseUp);
+						renderer.domElement.addEventListener('touchstart', onTouchStart);
+						renderer.domElement.addEventListener('touchmove', onTouchMove);
+						renderer.domElement.addEventListener('touchend', onTouchEnd);
+					} else {
+						renderer.domElement.removeEventListener('mousedown', onMouseDown);
+						renderer.domElement.removeEventListener('mousemove', onMouseMove);
+						renderer.domElement.removeEventListener('mouseup', onMouseUp);
+						renderer.domElement.removeEventListener('mouseleave', onMouseUp);
+						renderer.domElement.removeEventListener('touchstart', onTouchStart);
+						renderer.domElement.removeEventListener('touchmove', onTouchMove);
+						renderer.domElement.removeEventListener('touchend', onTouchEnd);
+					}
 				}
 			}
 		});
@@ -616,7 +647,11 @@
 		}
 
 		this.addToInit = function() {
-			if (!isInt || _this.images.length == 0){
+			if (_this.images.length == 0){
+				console.warn('');
+				return;
+			}
+			if (!isInt){
 				console.error('');
 				return;
 			}
@@ -710,6 +745,10 @@
 		}
 
 		this.addToInit = function() {
+			if (nOfCherries == 0){
+				console.warn('');
+				return;
+			}
 			if (nOfCherries > 3){
 				console.error('');
 				return;
@@ -792,6 +831,10 @@
 		}
 
 		this.addToInit = function() {
+			if (numOfFruits == 0){
+				console.warn('');
+				return;
+			}
 			if (!from3To5 && !divBy3)
 				return;
 			createFruits();
@@ -812,6 +855,23 @@
 		var _this = this;
 		var options = options || {};
 		FRUITPANORAMA.call(this, options);
+		this.fruitsPositions = options.fruitsPositions || [];
+
+		function createFruits() {
+			for (var i = 0; i < _this.images.length; i++){
+				var fruit = _this.createFruit(i);
+				if (_this.fruitsPositions[i]){
+					fruit.position.x = _this.fruitsPositions[i].x;
+					fruit.position.y = _this.fruitsPositions[i].y;
+					fruit.position.z = _this.fruitsPositions[i].z;
+				}
+				_this.SPHERES.add(fruit);
+			}
+		}
+
+		this.addToInit = function() {
+			createFruits();
+		}
 
 	}
 
