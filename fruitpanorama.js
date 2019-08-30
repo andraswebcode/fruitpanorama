@@ -544,6 +544,7 @@
 		this.branchTexture = options.branchTexture || '';
 		this.enableLeaf = options.enableLeaf === undefined ? true : options.enableLeaf;
 		this.leafColor = options.leafColor || 'green';
+		this.leafTexture = options.leafTexture || '';
 
 		var rowOfGrapes = Math.sqrt(_this.images.length);
 		var isInt = parseInt(rowOfGrapes) == rowOfGrapes;
@@ -593,6 +594,10 @@
 				color:new THREE.Color(_this.leafColor),
 				side:THREE.DoubleSide
 			});
+			if (_this.leafTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader().load(_this.leafTexture);
+			}
 			var leaf = new THREE.Mesh(geometry, material);
 			leaf.position.set(-0.3, 2.1, 0.7);
 			leaf.rotation.set(2.6, 0, -0.7);
@@ -613,6 +618,9 @@
 
 	}
 
+	GRAPEPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	GRAPEPANORAMA.prototype.constructor = GRAPEPANORAMA;
+
 	/**
 	 * THE CHERRYPANORAMA
 	 */
@@ -624,6 +632,9 @@
 		FRUITPANORAMA.call(this, options);
 
 	}
+
+	CHERRYPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	CHERRYPANORAMA.prototype.constructor = CHERRYPANORAMA;
 
 	/**
 	 * THE FRUITBOWLPANORAMA
@@ -637,6 +648,9 @@
 
 	}
 
+	FRUITBOWLPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	FRUITBOWLPANORAMA.prototype.constructor = FRUITBOWLPANORAMA;
+
 	/**
 	 * THE CUSTOMPANORAMA
 	 */
@@ -648,6 +662,9 @@
 		FRUITPANORAMA.call(this, options);
 
 	}
+
+	CUSTOMPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	CUSTOMPANORAMA.prototype.constructor = CUSTOMPANORAMA;
 
 	/**
 	 * GEOMETRIES
@@ -667,6 +684,7 @@
 		leaf.bezierCurveTo(-0.8 * radius, 0.55 * radius, -0.6 * radius, 0.5 * radius, -0.5 * radius, 0.4 * radius);
 		leaf.bezierCurveTo(-0.4 * radius, 0.8 * radius, 0, 0.9 * radius, 0, 1 * radius);
 		var geometry = new THREE.ShapeGeometry(leaf, segments);
+		var geometry = FixLeafGeometryUvs(geometry);
 		return geometry;
 	}
 
@@ -678,6 +696,7 @@
 		leaf.bezierCurveTo(0.1 * radius, 0.5 * radius, 0.7 * radius, -0.5 * radius, 0, -1 * radius);
 		leaf.bezierCurveTo(-0.7 * radius, -0.5 * radius, -0.1 * radius, 0.5 * radius, 0, 1 * radius);
 		var geometry = new THREE.ShapeGeometry(leaf, segments);
+		var geometry = FixLeafGeometryUvs(geometry);
 		return geometry;
 	}
 
@@ -695,8 +714,33 @@
 		return bowl;
 	}
 
-	GRAPEPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
-	GRAPEPANORAMA.prototype.constructor = GRAPEPANORAMA;
+	/**
+	 * others
+	 */
+
+	function FixLeafGeometryUvs(geometry){
+		geometry.computeBoundingBox();
+		var min = geometry.boundingBox.min;
+		var max = geometry.boundingBox.max;
+		var offset = new THREE.Vector2(0 - min.x, 0 - min.y);
+		var range = new THREE.Vector2(max.x - min.x, max.y - min.y);
+		var vertices = geometry.vertices;
+		var faces = geometry.faces;
+		var uvs = [];
+		for (var i = 0; i < faces.length; i++){
+			var v1 = vertices[faces[i].a];
+			var v2 = vertices[faces[i].b];
+			var v3 = vertices[faces[i].c];
+			uvs.push([
+				new THREE.Vector2((v1.x + offset.x) / range.x, (v1.y + offset.y) / range.y),
+				new THREE.Vector2((v2.x + offset.x) / range.x, (v2.y + offset.y) / range.y),
+				new THREE.Vector2((v3.x + offset.x) / range.x, (v3.y + offset.y) / range.y)
+			]);
+		}
+		geometry.faceVertexUvs[0] = uvs;
+		geometry.uvsNeedUpdate = true;
+		return geometry;
+	}
 
 	window.FRUITPANORAMA = {};
 	window.FRUITPANORAMA.GRAPE = GRAPEPANORAMA;
