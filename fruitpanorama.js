@@ -83,6 +83,7 @@
 
 		this.init = function() {
 			_this.container.innerHTML = '';
+			_this.container.className = 'fruitpano-container';
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
 			THEFRUIT.add(SPHERES, EXTRAS);
@@ -526,6 +527,15 @@
 						mesh.material.needsUpdate = true;
 					}
 				}
+			},
+			setColor:{
+				value:function(mesh, color) {
+					if (!mesh)
+						return;
+					mesh.material.map = null;
+					mesh.material.needsUpdate = true;
+					mesh.material.color = new THREE.Color(color);
+				}
 			}
 		});
 
@@ -599,6 +609,7 @@
 				material.map = new THREE.TextureLoader().load(_this.leafTexture);
 			}
 			var leaf = new THREE.Mesh(geometry, material);
+			leaf.name = 'leaf';
 			leaf.position.set(-0.3, 2.1, 0.7);
 			leaf.rotation.set(2.6, 0, -0.7);
 			_this.EXTRAS.add(leaf);
@@ -630,6 +641,83 @@
 		var _this = this;
 		var options = options || {};
 		FRUITPANORAMA.call(this, options);
+		this.branchColor = options.branchColor || 'brown';
+		this.branchTexture = options.branchTexture || '';
+		this.enableLeaf = options.enableLeaf === undefined ? true : options.enableLeaf;
+		this.leafColor = options.leafColor || 'green';
+		this.leafTexture = options.leafTexture || '';
+
+		var nOfCherries = _this.images.length;
+		var distance = 0.1;
+
+		function createCherry() {
+			for (var i = 0; i < nOfCherries; i++){
+				var cherry = _this.createFruit(i);
+				var radius = nOfCherries == 1 ? 0 : 2 / (2 * Math.sin(Math.PI / nOfCherries)) + distance;
+				var phi = 1.5 * Math.PI;
+				var theta = (2 * Math.PI / nOfCherries) * i + (Math.PI / 2);
+				cherry.position.setFromSphericalCoords(radius, phi, theta);
+				_this.SPHERES.add(cherry);
+			}
+		}
+
+		function createBranch() {
+			var geometry = new THREE.TorusGeometry(4, 0.1, _this.segments, _this.segments, Math.PI / 6);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.branchColor)
+			});
+			if (_this.branchTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader().load(_this.branchTexture);
+			}
+			for (var i = 0; i < nOfCherries; i++){
+				var branch = new THREE.Mesh(geometry, material);
+				branch.name = 'branch';
+				var radius = (nOfCherries == 1 ? 0 : 2 / (2 * Math.sin(Math.PI / nOfCherries)) + distance) - 4;
+				var phi = 1.5 * Math.PI;
+				var theta = (2 * Math.PI / nOfCherries) * i + (Math.PI / 2);
+				branch.position.setFromSphericalCoords(radius, phi, theta);
+				branch.rotation.z = 0.25;
+				branch.rotation.y = ((Math.PI * 2) / nOfCherries * i) + Math.PI;
+				_this.EXTRAS.add(branch);
+			}
+		}
+
+		function createLeaf() {
+			if (!_this.enableLeaf)
+				return;
+			var geometry = new CherryLeafGeometry(1, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.leafColor),
+				side:THREE.DoubleSide
+			});
+			if (_this.leafTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader().load(_this.leafTexture);
+			}
+			var leaf = new THREE.Mesh(geometry, material);
+			leaf.name = 'leaf';
+			leaf.position.x = 1;
+			leaf.position.y = 2.5;
+			leaf.position.z = 0.3;
+			leaf.rotation.x = 2.6;
+			leaf.rotation.z = -1.2;
+			if (_this.images.length === 1){
+				leaf.position.x = 0.1;
+				leaf.rotation.y = Math.PI;
+			}
+			_this.EXTRAS.add(leaf);
+		}
+
+		this.addToInit = function() {
+			if (nOfCherries > 3){
+				console.error('');
+				return;
+			}
+			createCherry();
+			createBranch();
+			createLeaf();
+		}
 
 	}
 
@@ -645,6 +733,70 @@
 		var _this = this;
 		var options = options || {};
 		FRUITPANORAMA.call(this, options);
+		this.bowlColor = options.bowlColor || 'brown';
+		this.bowlTexture = options.bowlTexture || '';
+
+		var numOfFruits = _this.images.length;
+		var from3To5 = numOfFruits > 2 && numOfFruits < 6;
+		var divBy3 = numOfFruits % 3 === 0;
+		var numOfFruitsInRow1, numOfFruitsInRow2;
+		if (from3To5){
+			numOfFruitsInRow1 = numOfFruits;
+			numOfFruitsInRow2 = 0;
+		}
+		if (!from3To5 && divBy3){
+			numOfFruitsInRow1 = numOfFruits * (2 / 3);
+			numOfFruitsInRow2 = numOfFruits * (1 / 3);
+		}
+
+		function createFruits() {
+			var nth = 0;
+			for (var i = 0; i < numOfFruitsInRow1; i++){
+				var fruit = _this.createFruit(nth);
+				var radius = 2 / (2 * Math.sin(Math.PI / numOfFruitsInRow1));
+				var phi = 1.5 * Math.PI;
+				var theta = (2 * Math.PI / numOfFruitsInRow1) * i;
+				fruit.position.setFromSphericalCoords(radius, phi, theta);
+				_this.SPHERES.add(fruit);
+				nth++;
+			}
+			if (!numOfFruitsInRow2)
+				return;
+			for (var i = 0; i < numOfFruitsInRow2; i++){
+				var fruit = _this.createFruit(nth);
+				var radius = 2 / (2 * Math.sin(Math.PI / numOfFruitsInRow2));
+				var phi = 1.5 * Math.PI;
+				var theta = ((2 * Math.PI / numOfFruitsInRow2) * i) + 0.5;
+				fruit.position.setFromSphericalCoords(radius, phi, theta);
+				fruit.position.y = 1.65;
+				_this.SPHERES.add(fruit);
+				nth++;
+			}
+		}
+
+		function createBowl() {
+			var radius = ((2 / (2 * Math.sin(Math.PI / numOfFruitsInRow1))) / 2) + 0.5;
+			var geometry = new BowlGeometry(radius, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				side:THREE.DoubleSide,
+				color:new THREE.Color(_this.bowlColor)
+			});
+			if (_this.bowlTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader().load(_this.bowlTexture);
+			}
+			var bowl = new THREE.Mesh(geometry, material);
+			var posY = - ((numOfFruitsInRow1 - 2) * 0.2 + 1.2);
+			bowl.position.y = posY;
+			_this.EXTRAS.add(bowl);
+		}
+
+		this.addToInit = function() {
+			if (!from3To5 && !divBy3)
+				return;
+			createFruits();
+			createBowl();
+		}
 
 	}
 
