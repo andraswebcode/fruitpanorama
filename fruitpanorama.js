@@ -1026,30 +1026,35 @@
 			var choices = geometryChoices();
 			var extras = _this.extras;
 			for (var i = 0; i < extras.length; i++){
-				var geometry = choices[extras[i].geometry];
-				var geometry = new geometry(extras[i].geometryParameters ? extras[i].geometryParameters : {});
-				var material = new THREE.MeshBasicMaterial({
-					side:THREE.DoubleSide
-				});
-				if (extras[i].color){
-					material.color = new THREE.Color(extras[i].color);
+				var geometryName = extras[i].geometry;
+				if (geometryName == 'custom'){
+					createMeshFromOBJFile(extras[i]);
+				} else {
+					var geometry = choices[geometryName];
+					var geometry = new geometry(extras[i].geometryParameters ? extras[i].geometryParameters : {});
+					var material = new THREE.MeshBasicMaterial({
+						side:THREE.DoubleSide
+					});
+					if (extras[i].color){
+						material.color = new THREE.Color(extras[i].color);
+					}
+					if (extras[i].texture){
+						material.color = new THREE.Color(1, 1, 1);
+						material.map = new THREE.TextureLoader(_this.loadingManager).load(extras[i].texture);
+					}
+					var mesh = new THREE.Mesh(geometry, material);
+					mesh.name = extras[i].name;
+					mesh.position.x = extras[i].position ? extras[i].position[0] : 0;
+					mesh.position.y = extras[i].position ? extras[i].position[1] : 0;
+					mesh.position.z = extras[i].position ? extras[i].position[2] : 0;
+					mesh.rotation.x = extras[i].rotation ? extras[i].rotation[0] : 0;
+					mesh.rotation.y = extras[i].rotation ? extras[i].rotation[1] : 0;
+					mesh.rotation.z = extras[i].rotation ? extras[i].rotation[2] : 0;
+					mesh.scale.x = extras[i].scale ? extras[i].scale[0] : 1;
+					mesh.scale.y = extras[i].scale ? extras[i].scale[1] : 1;
+					mesh.scale.z = extras[i].scale ? extras[i].scale[2] : 1;
+					_this.EXTRAS.add(mesh);
 				}
-				if (extras[i].texture){
-					material.color = new THREE.Color(1, 1, 1);
-					material.map = new THREE.TextureLoader(_this.loadingManager).load(extras[i].texture);
-				}
-				var mesh = new THREE.Mesh(geometry, material);
-				mesh.name = extras[i].name;
-				mesh.position.x = extras[i].position ? extras[i].position[0] : 0;
-				mesh.position.y = extras[i].position ? extras[i].position[1] : 0;
-				mesh.position.z = extras[i].position ? extras[i].position[2] : 0;
-				mesh.rotation.x = extras[i].rotation ? extras[i].rotation[0] : 0;
-				mesh.rotation.y = extras[i].rotation ? extras[i].rotation[1] : 0;
-				mesh.rotation.z = extras[i].rotation ? extras[i].rotation[2] : 0;
-				mesh.scale.x = extras[i].scale ? extras[i].scale[0] : 1;
-				mesh.scale.y = extras[i].scale ? extras[i].scale[1] : 1;
-				mesh.scale.z = extras[i].scale ? extras[i].scale[2] : 1;
-				_this.EXTRAS.add(mesh);
 			}
 		}
 
@@ -1101,6 +1106,41 @@
 				},
 			};
 			return choices;
+		}
+
+		function createMeshFromOBJFile(nthExtra) {
+			if (!nthExtra || !THREE.OBJLoader)
+				return;
+			new THREE.OBJLoader(_this.loadingManager).load(nthExtra.file, function(obj) {
+				if (!obj.children[0] || !obj.children[0].geometry)
+					return;
+				var objGeometry = obj.children[0].geometry;
+				var geometry = new THREE.Geometry();
+				geometry.fromBufferGeometry(objGeometry);
+				var material = new THREE.MeshBasicMaterial({
+					side:THREE.DoubleSide
+				});
+				if (nthExtra.color){
+					material.color = new THREE.Color(nthExtra.color);
+				}
+				if (nthExtra.texture){
+					material.color = new THREE.Color(1, 1, 1);
+					material.map = new THREE.TextureLoader(_this.loadingManager).load(nthExtra.texture);
+				}
+				var mesh = new THREE.Mesh(geometry, material);
+				mesh.name = nthExtra.name;
+				mesh.position.x = nthExtra.position ? nthExtra.position[0] : 0;
+				mesh.position.y = nthExtra.position ? nthExtra.position[1] : 0;
+				mesh.position.z = nthExtra.position ? nthExtra.position[2] : 0;
+				mesh.rotation.x = nthExtra.rotation ? nthExtra.rotation[0] : 0;
+				mesh.rotation.y = nthExtra.rotation ? nthExtra.rotation[1] : 0;
+				mesh.rotation.z = nthExtra.rotation ? nthExtra.rotation[2] : 0;
+				mesh.scale.x = nthExtra.scale ? nthExtra.scale[0] : 1;
+				mesh.scale.y = nthExtra.scale ? nthExtra.scale[1] : 1;
+				mesh.scale.z = nthExtra.scale ? nthExtra.scale[2] : 1;
+				_this.EXTRAS.add(mesh);
+				return mesh;
+			});
 		}
 
 		this.addToInit = function() {
