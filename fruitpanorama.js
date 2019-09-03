@@ -18,7 +18,7 @@
 		this.backgroundColor = options.backgroundColor || '';
 		this.backgroundImage = options.backgroundImage || '';
 		this.backgroundPanorama = options.backgroundPanorama || '';
-		this.segments = parseInt(options.segments) || 20;
+		this.segments = options.segments ? parseInt(options.segments) : 20;
 
 		this.cameraDistance = options.cameraDistance ? parseInt(options.cameraDistance) : 10;
 		this.enableRotation = options.enableRotation === undefined ? true : options.enableRotation;
@@ -27,6 +27,9 @@
 		this.autoRotateSpeed = options.autoRotateSpeed ? parseInt(options.autoRotateSpeed * 100) / 100 : 1;
 		this.minPolarAngle = options.minPolarAngle ? parseInt(options.minPolarAngle * 1000) / 1000 : 0.001;
 		this.maxPolarAngle = options.maxPolarAngle ? parseInt(options.maxPolarAngle * 1000) / 1000 : Math.PI - 0.001;
+		this.zoomSpeed = options.zoomSpeed ? parseInt(options.zoomSpeed * 1000) / 1000 : 0.01;
+		this.zoomMin = options.zoomMin ? parseInt(options.zoomMin * 100) / 100 : 0.4;
+		this.zoomMax = options.zoomMax ? parseInt(options.zoomMax * 100) / 100 : 4;
 
 		this.buttons = ['zoom', 'autoRotate', 'fullScreen'];
 
@@ -65,6 +68,10 @@
 			moveX:0,
 			moveY:0
 		};
+		var zoomingActions = {
+			isZoomingPlus:false,
+			isZoomingMinus:false
+		};
 		var buttons = {
 			container:null,
 			zoomPlus:null,
@@ -95,6 +102,7 @@
 			renderer.domElement.addEventListener('mousemove', onMouseMove);
 			renderer.domElement.addEventListener('mouseup', onMouseUp);
 			renderer.domElement.addEventListener('mouseleave', onMouseUp);
+			renderer.domElement.addEventListener('mousewheel', handleZoomingMouseWheel);
 			renderer.domElement.addEventListener('touchstart', onTouchStart);
 			renderer.domElement.addEventListener('touchmove', onTouchMove);
 			renderer.domElement.addEventListener('touchend', onTouchEnd);
@@ -117,6 +125,14 @@
 					camera.position.y + cameraLookAt.y,
 					camera.position.z + cameraLookAt.z
 				);
+			}
+			if (zoomingActions.isZoomingPlus){
+				camera.zoom = THREE.Math.clamp(camera.zoom + _this.zoomSpeed, _this.zoomMin, _this.zoomMax);
+				camera.updateProjectionMatrix();
+			}
+			if (zoomingActions.isZoomingMinus){
+				camera.zoom = THREE.Math.clamp(camera.zoom - _this.zoomSpeed, _this.zoomMin, _this.zoomMax);
+				camera.updateProjectionMatrix();
 			}
 			camera.lookAt(cameraLookAt);
 			raycaster.setFromCamera(pointer, camera);
@@ -170,13 +186,20 @@
 				btn.className = 'fruitpano-zoom-plus';
 				btn.innerHTML = 'zp';
 				buttons.zoomPlus = btn;
+				btn.addEventListener('mousedown', onPointerStartZoomPlus);
+				btn.addEventListener('mouseup', onPointerEndZoomPlus);
+				btn.addEventListener('touchstart', onPointerStartZoomPlus);
+				btn.addEventListener('touchend', onPointerEndZoomPlus);
 				container.appendChild(btn);
 				// minus
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-zoom-minus';
 				btn.innerHTML = 'zm';
 				buttons.zoomMinus = btn;
-				btn.addEventListener('click', onClickZoom);
+				btn.addEventListener('mousedown', onPointerStartZoomMinus);
+				btn.addEventListener('mouseup', onPointerEndZoomMinus);
+				btn.addEventListener('touchstart', onPointerStartZoomMinus);
+				btn.addEventListener('touchend', onPointerEndZoomMinus);
 				container.appendChild(btn);
 			}
 			// auto rotate
@@ -237,11 +260,15 @@
 		 */
 
 		function onMouseDown(e) {
+			if (e.altKey || e.ctrlKey || e.shiftKey)
+				return;
 			handleRotationPointerStart(e);
 			handleIntersectionPointerStart(e);
 		}
 
 		function onMouseMove(e) {
+			if (e.altKey || e.ctrlKey || e.shiftKey)
+				return;
 			handleRotationPointerMove(e);
 			handleIntersectionPointerMove(e);
 		}
@@ -383,11 +410,49 @@
 		}
 
 		/**
+		 * zooming event handlers
+		 */
+
+		function handleZoomingMouseWheel(e) {
+			if (e.deltaY < 0){
+				zoomingActions.isZoomingPlus = true;
+				zoomingActions.isZoomingMinus = false;
+			} else if (e.deltaY > 0){
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = true;
+			}
+			setTimeout(function() {
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = false;
+			}, 200);
+		}
+
+		/**
 		 * buttons events
 		 */
 
-		function onClickZoom(e) {
+		function onPointerStartZoomPlus(e) {
 			e.preventDefault();
+			zoomingActions.isZoomingPlus = true;
+			zoomingActions.isZoomingMinus = false;
+		}
+		
+		function onPointerEndZoomPlus(e) {
+			e.preventDefault();
+			zoomingActions.isZoomingPlus = false;
+			zoomingActions.isZoomingMinus = false;
+		}
+		
+		function onPointerStartZoomMinus(e) {
+			e.preventDefault();
+			zoomingActions.isZoomingPlus = false;
+			zoomingActions.isZoomingMinus = true;
+		}
+		
+		function onPointerEndZoomMinus(e) {
+			e.preventDefault();
+			zoomingActions.isZoomingPlus = false;
+			zoomingActions.isZoomingMinus = false;
 		}
 
 		function onClickAutoRotate(e) {
@@ -888,15 +953,15 @@
 				}
 				var mesh = new THREE.Mesh(geometry, material);
 				mesh.name = extras[i].name;
-				mesh.position.x = extras[i].position[0];
-				mesh.position.y = extras[i].position[1];
-				mesh.position.z = extras[i].position[2];
-				mesh.rotation.x = extras[i].rotation[0];
-				mesh.rotation.y = extras[i].rotation[1];
-				mesh.rotation.z = extras[i].rotation[2];
-				mesh.scale.x = extras[i].scale[0];
-				mesh.scale.y = extras[i].scale[1];
-				mesh.scale.z = extras[i].scale[2];
+				mesh.position.x = extras[i].position ? extras[i].position[0] : 0;
+				mesh.position.y = extras[i].position ? extras[i].position[1] : 0;
+				mesh.position.z = extras[i].position ? extras[i].position[2] : 0;
+				mesh.rotation.x = extras[i].rotation ? extras[i].rotation[0] : 0;
+				mesh.rotation.y = extras[i].rotation ? extras[i].rotation[1] : 0;
+				mesh.rotation.z = extras[i].rotation ? extras[i].rotation[2] : 0;
+				mesh.scale.x = extras[i].scale ? extras[i].scale[0] : 1;
+				mesh.scale.y = extras[i].scale ? extras[i].scale[1] : 1;
+				mesh.scale.z = extras[i].scale ? extras[i].scale[2] : 1;
 				_this.EXTRAS.add(mesh);
 			}
 		}
@@ -905,7 +970,8 @@
 			var choices = {
 				grapeLeaf:GrapeLeafGeometry,
 				cherryLeaf:CherryLeafGeometry,
-				bowl:BowlGeometry
+				bowl:BowlGeometry,
+				basket:BasketGeometry
 			};
 			return choices;
 		}
@@ -966,6 +1032,55 @@
 		}
 		var bowl = new THREE.LatheGeometry(points, segments);
 		return bowl;
+	}
+
+	function BasketGeometry(radius, segments) {
+		var radius = radius || 1;
+		var segments = segments || 10;
+		var points = [
+			new THREE.Vector2(0, 0),
+			new THREE.Vector2(1 * radius, 0),
+			new THREE.Vector2(1.2 * radius, 1 * radius)
+		];
+		var g1 = new THREE.LatheGeometry(points, segments);
+		var g2 = new THREE.TorusGeometry(1.2 * radius, 0.02 * radius, segments, segments, Math.PI);
+		var g1v = g1.vertices;
+		var g2v = g2.vertices;
+		var g1f = g1.faces;
+		var g2f = g2.faces;
+		var g1u = g1.faceVertexUvs[0];
+		var g2u = g2.faceVertexUvs[0];
+		var basket = new THREE.Geometry();
+		// create vertices
+		for (var i = 0; i < g1v.length; i++){
+			basket.vertices.push(g1v[i]);
+		}
+		for (var i = 0; i < g2v.length; i++){
+			var v = g2v[i];
+			v.y += 1 * radius;
+			basket.vertices.push(v);
+		}
+		// create faces
+		for (var i = 0; i < g1f.length; i++){
+			basket.faces.push(g1f[i]);
+		}
+		for (var i = 0; i < g2f.length; i++){
+			var length = g1v.length;
+			var face = g2f[i];
+			face.a += length;
+			face.b += length;
+			face.c += length;
+			basket.faces.push(face);
+		}
+		// create uvs
+		basket.faceVertexUvs[0] = [];
+		for (var i = 0; i < g1u.length; i++){
+			basket.faceVertexUvs[0].push(g1u[i]);
+		}
+		for (var i = 0; i < g2u.length; i++){
+			basket.faceVertexUvs[0].push(g2u[i]);
+		}
+		return basket;
 	}
 
 	/**
