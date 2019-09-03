@@ -32,6 +32,7 @@
 		this.zoomMax = options.zoomMax ? parseInt(options.zoomMax * 100) / 100 : 4;
 
 		this.buttons = ['zoom', 'autoRotate', 'fullScreen'];
+		this.enablePreloader = options.enablePreloader === undefined ? true : options.enablePreloader;
 
 		/**
 		 * private variables
@@ -40,6 +41,8 @@
 		var renderer = new THREE.WebGLRenderer({alpha:true});
 		var scene = new THREE.Scene();
 		var camera = new THREE.PerspectiveCamera(75, _this.width / _this.height, 0.01, 1000);
+		var loadingManager = new THREE.LoadingManager();
+		var preloader = null;
 		var THEFRUIT = new THREE.Object3D();
 		var SPHERES = new THREE.Object3D();
 		var EXTRAS = new THREE.Object3D();
@@ -70,7 +73,8 @@
 		};
 		var zoomingActions = {
 			isZoomingPlus:false,
-			isZoomingMinus:false
+			isZoomingMinus:false,
+			fingerDistance:0
 		};
 		var buttons = {
 			container:null,
@@ -91,6 +95,11 @@
 		this.init = function() {
 			_this.container.innerHTML = '';
 			_this.container.className = 'fruitpano-container';
+			if (_this.enablePreloader){
+				createPreloader();
+				loadingManager.onProgress = preloaderOnProgress;
+				loadingManager.onLoad = preloaderOnLoad;
+			}
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
 			THEFRUIT.add(SPHERES, EXTRAS);
@@ -146,9 +155,42 @@
 			renderer.render(scene, camera);
 		}
 
+		function preloaderOnProgress(url, loaded, total) {
+			var nOfLoaded = (loaded / total) * 100;
+			var progress = preloader.getElementsByClassName('fruitpano-progress');
+			var percentage = preloader.getElementsByClassName('fruitpano-progress-percentage');
+			progress[0].style.width = parseInt(nOfLoaded) + '%';
+			percentage[0].innerHTML = parseInt(nOfLoaded) + '%';
+		}
+
+		function preloaderOnLoad() {
+			preloader.className += ' fruitpano-preloader-fadeout';
+			preloader.addEventListener('animationend', function() {
+				_this.container.removeChild(preloader);
+			});
+		}
+
 		/**
 		 * create default things
 		 */
+
+		function createPreloader() {
+			if (!_this.enablePreloader)
+				return;
+			preloader = document.createElement('div');
+			preloader.className = 'fruitpano-preloader';
+			var progressBar = document.createElement('div');
+			progressBar.className = 'fruitpano-progressbar';
+			var progress = document.createElement('div');
+			progress.className = 'fruitpano-progress';
+			var percentage = document.createElement('div');
+			percentage.className = 'fruitpano-progress-percentage';
+			percentage.innerHTML = '0%';
+			progressBar.appendChild(progress);
+			progressBar.appendChild(percentage);
+			preloader.appendChild(progressBar);
+			_this.container.appendChild(preloader);
+		}
 
 		function createBackground() {
 			if (scene.getObjectByName('background')){
@@ -167,7 +209,7 @@
 				var geometry = new THREE.SphereGeometry(_this.cameraDistance * 10, _this.segments, _this.segments);
 				var material = new THREE.MeshBasicMaterial({
 					side:THREE.BackSide,
-					map:new THREE.TextureLoader().load(_this.backgroundPanorama)
+					map:new THREE.TextureLoader(loadingManager).load(_this.backgroundPanorama)
 				});
 				var bg = new THREE.Mesh(geometry, material);
 				bg.name = 'background';
@@ -237,7 +279,7 @@
 				side:THREE.DoubleSide
 			});
 			if (nthImg !== undefined && _this.images[nthImg]){
-				material.map = new THREE.TextureLoader().load(_this.images[nthImg]);
+				material.map = new THREE.TextureLoader(loadingManager).load(_this.images[nthImg]);
 			}
 			var mesh = new THREE.Mesh(geometry, material);
 			return mesh;
@@ -288,6 +330,9 @@
 					handleRotationPointerStart(e.touches[0]);
 					handleIntersectionPointerStart(e.touches[0]);
 				break;
+				case 2:
+					handleZoomingTouchStart(e.touches);
+				break;
 			}
 		}
 
@@ -297,12 +342,16 @@
 					handleRotationPointerMove(e.touches[0]);
 					handleIntersectionPointerMove(e.touches[0]);
 				break;
+				case 2:
+					handleZoomingTouchMove(e.touches);
+				break;
 			}
 		}
 
 		function onTouchEnd() {
 			handleRotationPointerEnd();
 			handleIntersectionPointerEnd();
+			handleZoomingTouchEnd();
 		}
 
 		/**
@@ -427,6 +476,35 @@
 			}, 200);
 		}
 
+		function handleZoomingTouchStart(eTouches) {
+			if (eTouches.length != 2)
+				return;
+			var dx = eTouches[0].clientX - eTouches[1].clientX;
+			var dy = eTouches[0].clientY - eTouches[1].clientY;
+			zoomingActions.fingerDistance = Math.sqrt(dx * dx + dy * dy);
+		}
+
+		function handleZoomingTouchMove(eTouches) {
+			if (eTouches.length != 2)
+				return;
+			var dx = eTouches[0].clientX - eTouches[1].clientX;
+			var dy = eTouches[0].clientY - eTouches[1].clientY;
+			var distance = Math.sqrt(dx * dx + dy * dy);
+			if (distance > zoomingActions.fingerDistance){
+				zoomingActions.isZoomingPlus = true;
+				zoomingActions.isZoomingMinus = false;
+			} else {
+				zoomingActions.isZoomingPlus = false;
+				zoomingActions.isZoomingMinus = true;
+			}
+			zoomingActions.fingerDistance = distance;
+		}
+
+		function handleZoomingTouchEnd() {
+			zoomingActions.isZoomingPlus = false;
+			zoomingActions.isZoomingMinus = false;
+		}
+
 		/**
 		 * buttons events
 		 */
@@ -547,6 +625,11 @@
 					return camera;
 				}
 			},
+			loadingManager:{
+				get:function() {
+					return loadingManager;
+				}
+			},
 			SPHERES:{
 				get:function() {
 					return SPHERES;
@@ -598,7 +681,7 @@
 						mesh.material.map.image.src = texture;
 						mesh.material.map.needsUpdate = true;
 					} else {
-						mesh.material.map = new THREE.TextureLoader().load(texture);
+						mesh.material.map = new THREE.TextureLoader(loadingManager).load(texture);
 						mesh.material.needsUpdate = true;
 					}
 				}
@@ -680,7 +763,7 @@
 			});
 			if (_this.branchTexture){
 				material.color = new THREE.Color(1, 1, 1);
-				material.map = new THREE.TextureLoader().load(_this.branchTexture);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.branchTexture);
 			}
 			var branch1 = new THREE.Mesh(geometry, material);
 			branch1.name = 'branch';
@@ -702,7 +785,7 @@
 			});
 			if (_this.leafTexture){
 				material.color = new THREE.Color(1, 1, 1);
-				material.map = new THREE.TextureLoader().load(_this.leafTexture);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.leafTexture);
 			}
 			var leaf = new THREE.Mesh(geometry, material);
 			leaf.name = 'leaf';
@@ -768,7 +851,7 @@
 			});
 			if (_this.branchTexture){
 				material.color = new THREE.Color(1, 1, 1);
-				material.map = new THREE.TextureLoader().load(_this.branchTexture);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.branchTexture);
 			}
 			for (var i = 0; i < nOfCherries; i++){
 				var branch = new THREE.Mesh(geometry, material);
@@ -793,7 +876,7 @@
 			});
 			if (_this.leafTexture){
 				material.color = new THREE.Color(1, 1, 1);
-				material.map = new THREE.TextureLoader().load(_this.leafTexture);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.leafTexture);
 			}
 			var leaf = new THREE.Mesh(geometry, material);
 			leaf.name = 'leaf';
@@ -887,7 +970,7 @@
 			});
 			if (_this.bowlTexture){
 				material.color = new THREE.Color(1, 1, 1);
-				material.map = new THREE.TextureLoader().load(_this.bowlTexture);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.bowlTexture);
 			}
 			var bowl = new THREE.Mesh(geometry, material);
 			var posY = - ((numOfFruitsInRow1 - 2) * 0.2 + 1.2);
@@ -940,7 +1023,7 @@
 			var extras = _this.extras;
 			for (var i = 0; i < extras.length; i++){
 				var geometry = choices[extras[i].geometry];
-				var geometry = new geometry(1, _this.segments);
+				var geometry = new geometry(extras[i].geometryParameters ? extras[i].geometryParameters : {});
 				var material = new THREE.MeshBasicMaterial({
 					side:THREE.DoubleSide
 				});
@@ -949,7 +1032,7 @@
 				}
 				if (extras[i].texture){
 					material.color = new THREE.Color(1, 1, 1);
-					material.map = new THREE.TextureLoader().load(extras[i].texture);
+					material.map = new THREE.TextureLoader(_this.loadingManager).load(extras[i].texture);
 				}
 				var mesh = new THREE.Mesh(geometry, material);
 				mesh.name = extras[i].name;
@@ -968,10 +1051,49 @@
 
 		function geometryChoices() {
 			var choices = {
-				grapeLeaf:GrapeLeafGeometry,
-				cherryLeaf:CherryLeafGeometry,
-				bowl:BowlGeometry,
-				basket:BasketGeometry
+				grapeLeaf:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : null;
+					return new GrapeLeafGeometry(radius, _this.segments);
+				},
+				cherryLeaf:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : null;
+					return new CherryLeafGeometry(radius, _this.segments);
+				},
+				bowl:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : null;
+					return new BowlGeometry(radius, _this.segments);
+				},
+				basket:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : null;
+					return new BasketGeometry(radius, _this.segments);
+				},
+				box:function(atts) {
+					var atts = atts || {};
+					var width = atts.width ? atts.width : 1;
+					var height = atts.height ? atts.height : 1;
+					var depth = atts.depth ? atts.depth : 1;
+					return new THREE.BoxGeometry(width, height, depth);
+				},
+				sphere:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : 1;
+					var phiStart = atts.phiStart ? atts.phiStart : undefined;
+					var phiLength = atts.phiLength ? atts.phiLength : undefined;
+					var thetaStart = atts.thetaStart ? atts.thetaStart : undefined;
+					var thetaLength = atts.thetaLength ? atts.thetaLength : undefined;
+					return new THREE.SphereGeometry(radius, _this.segments, _this.segments, phiStart, phiLength, thetaStart, thetaLength);
+				},
+				torus:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : 1;
+					var tube = atts.tube ? atts.tube : undefined;
+					var arc = atts.arc ? atts.arc : undefined;
+					return new THREE.TorusGeometry(radius, tube, _this.segments, _this.segments, arc);
+				},
 			};
 			return choices;
 		}
@@ -980,6 +1102,12 @@
 			createFruits();
 			createExtras();
 		}
+
+		Object.defineProperty(this, 'getGeometryChoices', {
+			get:function() {
+				return geometryChoices();
+			}
+		});
 
 	}
 
