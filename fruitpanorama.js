@@ -1004,15 +1004,19 @@
 		var options = options || {};
 		FRUITPANORAMA.call(this, options);
 		this.fruitsPositions = options.fruitsPositions || [];
+		this.fruitsScales = options.fruitsScales || [];
 		this.extras = options.extras || [];
 
 		function createFruits() {
 			for (var i = 0; i < _this.images.length; i++){
 				var fruit = _this.createFruit(i);
 				if (_this.fruitsPositions[i]){
-					fruit.position.x = _this.fruitsPositions[i][0];
-					fruit.position.y = _this.fruitsPositions[i][1];
-					fruit.position.z = _this.fruitsPositions[i][2];
+					var x = _this.fruitsPositions[i] && _this.fruitsPositions[i][0] ? _this.fruitsPositions[i][0] : 0;
+					var y = _this.fruitsPositions[i] && _this.fruitsPositions[i][1] ? _this.fruitsPositions[i][1] : 0;
+					var z = _this.fruitsPositions[i] && _this.fruitsPositions[i][2] ? _this.fruitsPositions[i][2] : 0;
+					var scale = _this.fruitsScales[i] ? _this.fruitsScales[i] : 1;
+					fruit.position.set(x, y, z);
+					fruit.scale.set(scale, scale, scale);
 				}
 				_this.SPHERES.add(fruit);
 			}
@@ -1069,7 +1073,8 @@
 				basket:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
-					return new BasketGeometry(radius, _this.segments);
+					var height = atts.height ? atts.height : null;
+					return new BasketGeometry(radius, _this.segments, height);
 				},
 				box:function(atts) {
 					var atts = atts || {};
@@ -1162,13 +1167,14 @@
 		return bowl;
 	}
 
-	function BasketGeometry(radius, segments) {
+	function BasketGeometry(radius, segments, height) {
 		var radius = radius || 1;
 		var segments = segments || 10;
+		var height = height || 1;
 		var points = [
 			new THREE.Vector2(0, 0),
 			new THREE.Vector2(1 * radius, 0),
-			new THREE.Vector2(1.2 * radius, 1 * radius)
+			new THREE.Vector2(1.2 * radius, height * radius)
 		];
 		var g1 = new THREE.LatheGeometry(points, segments);
 		var g2 = new THREE.TorusGeometry(1.2 * radius, 0.02 * radius, segments, segments, Math.PI);
@@ -1185,7 +1191,7 @@
 		}
 		for (var i = 0; i < g2v.length; i++){
 			var v = g2v[i];
-			v.y += 1 * radius;
+			v.y += height * radius;
 			basket.vertices.push(v);
 		}
 		// create faces
