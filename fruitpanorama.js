@@ -25,6 +25,7 @@
 		this.rotationSpeed = options.rotationSpeed ? parseInt(options.rotationSpeed * 100) / 100 : 5;
 		this.autoRotate = options.autoRotate === undefined ? true : options.autoRotate;
 		this.autoRotateSpeed = options.autoRotateSpeed ? parseInt(options.autoRotateSpeed * 100) / 100 : 1;
+		this.startPolarAngle = options.startPolarAngle ? parseInt(options.startPolarAngle * 1000) / 1000 : 0;
 		this.minPolarAngle = options.minPolarAngle ? parseInt(options.minPolarAngle * 1000) / 1000 : 0.001;
 		this.maxPolarAngle = options.maxPolarAngle ? parseInt(options.maxPolarAngle * 1000) / 1000 : Math.PI - 0.001;
 		this.zoomSpeed = options.zoomSpeed ? parseInt(options.zoomSpeed * 1000) / 1000 : 0.01;
@@ -57,7 +58,7 @@
 
 		var rotationActions = {
 			isActive:false,
-			phi:0,
+			phi:_this.startPolarAngle,
 			theta:0,
 			startPhi:0,
 			startTheta:0,
@@ -226,7 +227,7 @@
 				// plus
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-zoom-plus';
-				btn.innerHTML = 'zp';
+				btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" stroke-width="10" stroke="black" fill="transparent"></circle><line x1="50" y1="20" x2="50" y2="80" stroke-width="10" stroke="black"></line><line x1="20" y1="50" x2="80" y2="50" stroke-width="10" stroke="black"></line></svg>';
 				buttons.zoomPlus = btn;
 				btn.addEventListener('mousedown', onPointerStartZoomPlus);
 				btn.addEventListener('mouseup', onPointerEndZoomPlus);
@@ -236,7 +237,7 @@
 				// minus
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-zoom-minus';
-				btn.innerHTML = 'zm';
+				btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" stroke-width="10" stroke="black" fill="transparent"></circle><line x1="20" y1="50" x2="80" y2="50" stroke-width="10" stroke="black"></line></svg>';
 				buttons.zoomMinus = btn;
 				btn.addEventListener('mousedown', onPointerStartZoomMinus);
 				btn.addEventListener('mouseup', onPointerEndZoomMinus);
@@ -248,7 +249,7 @@
 			if (_this.buttons.indexOf('autoRotate') !== - 1){
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-autorotate';
-				btn.innerHTML = 'ar';
+				btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M 90 30 a 45 45 0 1 0 0 40 M 95 10 L 90 30 L 71 29" stroke-width="10" stroke="black" fill="transparent"></path></svg>';
 				buttons.autoRotate = btn;
 				btn.addEventListener('click', onClickAutoRotate);
 				container.appendChild(btn);
@@ -257,7 +258,7 @@
 			if (_this.buttons.indexOf('fullScreen') !== - 1){
 				var btn = document.createElement('a');
 				btn.className = 'fruitpano-fullscreen';
-				btn.innerHTML = 'fs';
+				btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="5" y="5" rx="10" ry="10" width="90" height="90" stroke-width="10" stroke="black" fill="transparent"></rect></svg>';
 				buttons.fullScreen = btn;
 				btn.addEventListener('click', onClickFullScreen);
 				container.appendChild(btn);
@@ -265,7 +266,7 @@
 			// go back
 			var goBack = document.createElement('a');
 			goBack.className = 'fruitpano-goback';
-			goBack.innerHTML = 'gb';
+			goBack.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M 10 50 L 35 25 L 35 40 L 70 40 L 70 60 L 35 60 L 35 75 Z" stroke-width="10" stroke="black" fill="black"></path><path d="M 65 20 L 95 20 L 95 80 L 65 80" stroke-width="10" stroke="black" fill="transparent"></path></svg>';
 			goBack.style.display = 'none';
 			buttons.goBack = goBack;
 			goBack.addEventListener('click', onClickGoBack);
@@ -1104,6 +1105,19 @@
 					var arc = atts.arc ? atts.arc : undefined;
 					return new THREE.TorusGeometry(radius, tube, _this.segments, _this.segments, arc);
 				},
+				plane:function(atts) {
+					var atts = atts || {};
+					var width = atts.width ? atts.width : 1;
+					var height = atts.height ? atts.height : 1;
+					return new THREE.PlaneGeometry(width, height);
+				},
+				circle:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : 1;
+					var thetaStart = atts.thetaStart ? atts.thetaStart : undefined;
+					var thetaLength = atts.thetaLength ? atts.thetaLength : undefined;
+					return new THREE.CircleGeometry(radius, _this.segments, thetaStart, thetaLength);
+				}
 			};
 			return choices;
 		}
