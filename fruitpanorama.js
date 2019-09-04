@@ -1030,6 +1030,8 @@
 				var geometryName = extras[i].geometry;
 				if (geometryName == 'custom'){
 					createMeshFromOBJFile(extras[i]);
+				} else if (geometryName == 'text'){
+					createTextObject(extras[i]);
 				} else {
 					var geometry = choices[geometryName];
 					var geometry = new geometry(extras[i].geometryParameters ? extras[i].geometryParameters : {});
@@ -1122,8 +1124,49 @@
 			return choices;
 		}
 
+		function createTextObject(nthExtra) {
+			if (!nthExtra || !nthExtra.font)
+				return;
+			new THREE.FontLoader(_this.loadingManager).load(nthExtra.font, function(font) {
+				var text = nthExtra.text ? nthExtra.text : 'text';
+				var parameters = nthExtra.geometryParameters ? nthExtra.geometryParameters : {};
+				var size = parameters.size ? parameters.size : 1;
+				var depth = parameters.depth ? parameters.depth : 1;
+				var geometry = new THREE.TextGeometry(text, {
+					font:font,
+					size:size,
+					height:depth,
+					curveSegments:_this.segments
+				});
+				geometry.center();
+				var material = new THREE.MeshBasicMaterial({
+					side:THREE.DoubleSide
+				});
+				if (nthExtra.color){
+					material.color = new THREE.Color(nthExtra.color);
+				}
+				if (nthExtra.texture){
+					material.color = new THREE.Color(1, 1, 1);
+					material.map = new THREE.TextureLoader(_this.loadingManager).load(nthExtra.texture);
+				}
+				var mesh = new THREE.Mesh(geometry, material);
+				mesh.name = nthExtra.name;
+				mesh.position.x = nthExtra.position ? nthExtra.position[0] : 0;
+				mesh.position.y = nthExtra.position ? nthExtra.position[1] : 0;
+				mesh.position.z = nthExtra.position ? nthExtra.position[2] : 0;
+				mesh.rotation.x = nthExtra.rotation ? nthExtra.rotation[0] : 0;
+				mesh.rotation.y = nthExtra.rotation ? nthExtra.rotation[1] : 0;
+				mesh.rotation.z = nthExtra.rotation ? nthExtra.rotation[2] : 0;
+				mesh.scale.x = nthExtra.scale ? nthExtra.scale[0] : 1;
+				mesh.scale.y = nthExtra.scale ? nthExtra.scale[1] : 1;
+				mesh.scale.z = nthExtra.scale ? nthExtra.scale[2] : 1;
+				_this.EXTRAS.add(mesh);
+				return mesh;
+			});
+		}
+
 		function createMeshFromOBJFile(nthExtra) {
-			if (!nthExtra || !THREE.OBJLoader)
+			if (!nthExtra || !nthExtra.file || !THREE.OBJLoader)
 				return;
 			new THREE.OBJLoader(_this.loadingManager).load(nthExtra.file, function(obj) {
 				if (!obj.children[0] || !obj.children[0].geometry)
