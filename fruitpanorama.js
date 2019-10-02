@@ -22,17 +22,17 @@
 
 		this.cameraDistance = options.cameraDistance ? parseInt(options.cameraDistance) : 10;
 		this.enableRotation = options.enableRotation === undefined ? true : options.enableRotation;
-		this.rotationSpeed = options.rotationSpeed ? parseInt(options.rotationSpeed * 100) / 100 : 5;
+		this.rotationSpeed = options.rotationSpeed ? parseFloat(options.rotationSpeed) : 5;
 		this.autoRotate = options.autoRotate === undefined ? true : options.autoRotate;
-		this.autoRotateSpeed = options.autoRotateSpeed ? parseInt(options.autoRotateSpeed * 100) / 100 : 1;
-		this.startPolarAngle = options.startPolarAngle ? parseInt(options.startPolarAngle * 1000) / 1000 : 0;
-		this.minPolarAngle = options.minPolarAngle ? parseInt(options.minPolarAngle * 1000) / 1000 : 0.001;
-		this.maxPolarAngle = options.maxPolarAngle ? parseInt(options.maxPolarAngle * 1000) / 1000 : Math.PI - 0.001;
-		this.zoomSpeed = options.zoomSpeed ? parseInt(options.zoomSpeed * 1000) / 1000 : 0.01;
-		this.zoomMin = options.zoomMin ? parseInt(options.zoomMin * 100) / 100 : 0.4;
-		this.zoomMax = options.zoomMax ? parseInt(options.zoomMax * 100) / 100 : 4;
+		this.autoRotateSpeed = options.autoRotateSpeed ? parseFloat(options.autoRotateSpeed) : 1;
+		this.startPolarAngle = options.startPolarAngle ? parseFloat(options.startPolarAngle) : 0;
+		this.minPolarAngle = options.minPolarAngle ? parseFloat(options.minPolarAngle) : 0.001;
+		this.maxPolarAngle = options.maxPolarAngle ? parseFloat(options.maxPolarAngle) : Math.PI - 0.001;
+		this.zoomSpeed = options.zoomSpeed ? parseFloat(options.zoomSpeed) : 0.01;
+		this.zoomMin = options.zoomMin ? parseFloat(options.zoomMin) : 0.4;
+		this.zoomMax = options.zoomMax ? parseFloat(options.zoomMax) : 4;
 
-		this.buttons = ['zoom', 'autoRotate', 'fullScreen'];
+		this.buttons = options.buttons ? options.buttons : ['zoom', 'autoRotate', 'fullScreen'];
 		this.enablePreloader = options.enablePreloader === undefined ? true : options.enablePreloader;
 
 		/**
@@ -70,7 +70,8 @@
 			startX:0,
 			startY:0,
 			moveX:0,
-			moveY:0
+			moveY:0,
+			fingerNumber:0
 		};
 		var zoomingActions = {
 			isZoomingPlus:false,
@@ -101,6 +102,7 @@
 				loadingManager.onProgress = preloaderOnProgress;
 				loadingManager.onLoad = preloaderOnLoad;
 			}
+			loadingManager.onError = onLoadingError;
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
 			THEFRUIT.add(SPHERES, EXTRAS);
@@ -169,6 +171,17 @@
 			preloader.addEventListener('animationend', function() {
 				_this.container.removeChild(preloader);
 			});
+		}
+
+		function onLoadingError() {
+			console.warn('An error occurred loading items! Scene loaded again...');
+			_this.reset();
+		}
+
+		this.reset = function() {
+			SPHERES.children = [];
+			EXTRAS.children = [];
+			_this.init();
 		}
 
 		/**
@@ -326,6 +339,7 @@
 		 */
 
 		function onTouchStart(e) {
+			intersectionActions.fingerNumber = e.touches.length;
 			switch (e.touches.length){
 				case 1:
 					handleRotationPointerStart(e.touches[0]);
@@ -341,7 +355,8 @@
 			switch (e.touches.length){
 				case 1:
 					handleRotationPointerMove(e.touches[0]);
-					handleIntersectionPointerMove(e.touches[0]);
+					if (intersectionActions.fingerNumber === 1)
+						handleIntersectionPointerMove(e.touches[0]);
 				break;
 				case 2:
 					handleZoomingTouchMove(e.touches);
@@ -351,7 +366,8 @@
 
 		function onTouchEnd() {
 			handleRotationPointerEnd();
-			handleIntersectionPointerEnd();
+			if (intersectionActions.fingerNumber === 1)
+				handleIntersectionPointerEnd();
 			handleZoomingTouchEnd();
 		}
 
@@ -667,6 +683,9 @@
 					buttons.container.innerHTML = '';
 					_this.buttons = btn;
 					createButtons();
+					if (inTheFruit){
+						buttons.goBack.style.display = 'block';
+					}
 				}
 			},
 			setTexture:{
@@ -678,6 +697,7 @@
 						mesh.material.needsUpdate = true;
 						return;
 					}
+					mesh.material.color = new THREE.Color(1, 1, 1);
 					if (mesh.material.map){
 						mesh.material.map.image.src = texture;
 						mesh.material.map.needsUpdate = true;
@@ -715,6 +735,20 @@
 						renderer.domElement.removeEventListener('touchmove', onTouchMove);
 						renderer.domElement.removeEventListener('touchend', onTouchEnd);
 					}
+				}
+			},
+			setCameraDistance:{
+				value:function(value) {
+					_this.cameraDistance = value;
+					cameraDistance = value;
+					var bg = scene.getObjectByName('background');
+					bg.geometry = new THREE.SphereGeometry(_this.cameraDistance * 10, _this.segments, _this.segments);
+				}
+			},
+			setAutoRotate:{
+				value:function(value) {
+					_this.autoRotate = value;
+					autoRotate = value;
 				}
 			}
 		});
@@ -1161,7 +1195,6 @@
 				mesh.scale.y = nthExtra.scale ? nthExtra.scale[1] : 1;
 				mesh.scale.z = nthExtra.scale ? nthExtra.scale[2] : 1;
 				_this.EXTRAS.add(mesh);
-				return mesh;
 			});
 		}
 
@@ -1196,13 +1229,32 @@
 				mesh.scale.y = nthExtra.scale ? nthExtra.scale[1] : 1;
 				mesh.scale.z = nthExtra.scale ? nthExtra.scale[2] : 1;
 				_this.EXTRAS.add(mesh);
-				return mesh;
 			});
 		}
 
 		this.addToInit = function() {
 			createFruits();
 			createExtras();
+		}
+
+		this.createExtra = function(params) {
+			var params = params || {};
+			if (!params.geometry)
+				return;
+			if (params.geometry == 'custom'){
+				createMeshFromOBJFile(params);
+			} else if (params.geometry == 'text'){
+				createTextObject(params);
+			} else {
+				var choices = geometryChoices();
+				var geometry = choices[params.geometry];
+				var geometry = new geometry(params.geometryParameters ? params.geometryParameters : {});
+				var material = new THREE.MeshBasicMaterial({
+					side:THREE.DoubleSide
+				});
+				var mesh = new THREE.Mesh(geometry, material);
+				_this.EXTRAS.add(mesh);
+			}
 		}
 
 		Object.defineProperty(this, 'getGeometryChoices', {
