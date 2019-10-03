@@ -947,6 +947,109 @@
 	CHERRYPANORAMA.prototype.constructor = CHERRYPANORAMA;
 
 	/**
+	 * THE APPLEBRANCHPANORAMA
+	 */
+
+	function APPLEBRANCHPANORAMA(options){
+
+		var _this = this;
+		var options = options || {};
+		FRUITPANORAMA.call(this, options);
+		this.branchColor = options.branchColor || 'brown';
+		this.branchTexture = options.branchTexture || '';
+		this.enableLeaf = options.enableLeaf === undefined ? true : options.enableLeaf;
+		this.leafColor = options.leafColor || 'green';
+		this.leafTexture = options.leafTexture || '';
+
+		var nOfApples = _this.images.length;
+		var branchNumber = (nOfApples < 3) ? 3 : 5;
+		var applePositions = [
+			[6.7, -2.6, -0.8],
+			[3.4, 0.4, 1.5],
+			[5.4, -2.5, 1.2],
+			[2.4, 0.3, -2],
+			[3.3, -1.9, 0],
+			[0.8, -1.2, 0]
+		];
+		var leafPositions = [
+			[8.4, 0.4, -0.6, 1.6, 0.4, 4.2],
+			[7.8, 0.1, 1.2, 1.6, 0.2, -0.4],
+			[6.8, -0.3, -1.2, 1.5, 0.2, 2.8],
+			[4.2, 1.9, 1, 1.6, 0.2, -2.3],
+			[3.9, 2, 2.9, 1.5, 0.2, -0.5],
+			[2.2, 1.7, 2.6, 1.4, 0.1, 0.9]
+		];
+		if (branchNumber == 5){
+			leafPositions.push(
+				[1.5, 1.7, -2.7, -1.5, -0.1, 0.8],
+				[3.5, 1.9, -2.2, -1.5, -0.1, -1.2],
+				[2.8, 1.6, -0.5, 1.7, 0.2, -0.3]
+			);
+		}
+
+		function createApples() {
+			for (var i = 0; i < nOfApples; i++){
+				var apple = _this.createFruit(i);
+				apple.position.set(applePositions[i][0], applePositions[i][1], applePositions[i][2]);
+				_this.SPHERES.add(apple);
+			}
+		}
+
+		function createBranch() {
+			var geometry = new TreeBranchGeometry(3, _this.segments, branchNumber);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.branchColor),
+				side:THREE.DoubleSide
+			});
+			if (_this.branchTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.branchTexture);
+			}
+			var branch = new THREE.Mesh(geometry, material);
+			branch.name = 'branch';
+			branch.rotation.z = - Math.PI / 2;
+			_this.EXTRAS.add(branch);
+		}
+
+		function createLeafs() {
+			if (!_this.enableLeaf)
+				return;
+			var geometry = new AppleLeafGeometry(1, _this.segments);
+			var material = new THREE.MeshBasicMaterial({
+				color:new THREE.Color(_this.leafColor),
+				side:THREE.DoubleSide
+			});
+			if (_this.leafTexture){
+				material.color = new THREE.Color(1, 1, 1);
+				material.map = new THREE.TextureLoader(_this.loadingManager).load(_this.leafTexture);
+			}
+			for (var i = 0; i < leafPositions.length; i++){
+				var leaf = new THREE.Mesh(geometry, material);
+				leaf.name = 'leaf';
+				leaf.position.set(leafPositions[i][0], leafPositions[i][1], leafPositions[i][2]);
+				leaf.rotation.set(leafPositions[i][3], leafPositions[i][4], leafPositions[i][5]);
+				_this.EXTRAS.add(leaf);
+			}
+		}
+
+		this.addToInit = function() {
+			if (nOfApples < 2 || nOfApples > 6){
+				console.warn('');
+				return;
+			}
+			createApples();
+			createBranch();
+			createLeafs();
+			_this.SPHERES.position.x = -1;
+			_this.EXTRAS.position.x = -1;
+		}
+
+	}
+
+	APPLEBRANCHPANORAMA.prototype = Object.create(FRUITPANORAMA.prototype);
+	APPLEBRANCHPANORAMA.prototype.constructor = APPLEBRANCHPANORAMA;
+
+	/**
 	 * THE FRUITBOWLPANORAMA
 	 */
 
@@ -1106,6 +1209,17 @@
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
 					return new CherryLeafGeometry(radius, _this.segments);
+				},
+				appleLeaf:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius ? atts.radius : null;
+					return new AppleLeafGeometry(radius, _this.segments);
+				},
+				treeBranch:function(atts) {
+					var atts = atts || {};
+					var radius = atts.radius || null;
+					var branchNumber = atts.branchNumber || null;
+					return new TreeBranchGeometry(radius, _this.segments, branchNumber);
 				},
 				bowl:function(atts) {
 					var atts = atts || {};
@@ -1302,6 +1416,83 @@
 		return geometry;
 	}
 
+	function AppleLeafGeometry(radius, segments) {
+		var radius = radius || 1;
+		var segments = segments || 10;
+		var leaf = new THREE.Shape();
+		leaf.moveTo(0, 1 * radius);
+		leaf.bezierCurveTo(0.4 * radius, 0.5 * radius, 1.2 * radius, -0.5 * radius, 0, -1 * radius);
+		leaf.bezierCurveTo(-1.2 * radius, -0.5 * radius, -0.4 * radius, 0.5 * radius, 0, 1 * radius);
+		var geometry = new THREE.ShapeGeometry(leaf, segments);
+		var geometry = FixLeafGeometryUvs(geometry);
+		return geometry;
+	}
+
+	function TreeBranchGeometry(radius, segments, branchNumber) {
+		var radius = radius || 1;
+		var segments = segments || 10;
+		var branchNumber = branchNumber || 3;
+		var BRANCH = new THREE.Geometry();
+		var createBranch = function(radiusTop, radiusBottom, height, wave, amplitude) {
+			var radiusTop = radiusTop || 0.1;
+			var radiusBottom = radiusBottom || 0.2;
+			var height = height || 5;
+			var wave = wave || 4;
+			var amplitude = amplitude || 0.04;
+			var branch = new THREE.CylinderGeometry(radiusTop * radius, radiusBottom * radius, height * radius, segments, segments, true);
+			var vertices = branch.vertices;
+			var wave = (wave / (segments * 4)) / (segments / 4);
+			var amplitude = amplitude * height * radius;
+			for (var i = 0; i < vertices.length; i+=segments){
+				for (var j = 0; j < segments; j++){
+					vertices[i + j].x += amplitude * Math.sin(i * wave);
+				}
+			}
+			branch.verticesNeedUpdate = true;
+			return branch;
+		};
+		if (branchNumber >= 1){
+			var branch1Geometry = new createBranch(0.05, 0.2, 5, 8);
+			var branch1 = new THREE.Mesh(branch1Geometry);
+			branch1.updateMatrix();
+			BRANCH.merge(branch1.geometry, branch1.matrix);
+		}
+		if (branchNumber >= 2){
+			var branch2Geometry = new createBranch(0.05, 0.15, 2);
+			var branch2 = new THREE.Mesh(branch2Geometry);
+			branch2.position.set(-0.35 * radius, 0.2 * radius, 0.3 * radius);
+			branch2.rotation.set(0, 1, 0.4);
+			branch2.updateMatrix();
+			BRANCH.merge(branch2.geometry, branch2.matrix);
+		}
+		if (branchNumber >= 3){
+			var branch3Geometry = new createBranch(0.025, 0.075, 1);
+			var branch3 = new THREE.Mesh(branch3Geometry);
+			branch3.position.set(0.35 * radius, 1.9 * radius, -0.1 * radius);
+			branch3.rotation.set(-0.3, -0.1, 6);
+			branch3.updateMatrix();
+			BRANCH.merge(branch3.geometry, branch3.matrix);
+		}
+		if (branchNumber >= 4){
+			var branch4Geometry = new createBranch(0.025, 0.075, 1);
+			var branch4 = new THREE.Mesh(branch4Geometry);
+			branch4.position.set(0.3 * radius, 1.5 * radius, 0.2 * radius);
+			branch4.rotation.set(0.4, -0.1, 6);
+			branch4.updateMatrix();
+			BRANCH.merge(branch4.geometry, branch4.matrix);
+		}
+		if (branchNumber >= 5){
+			var branch5Geometry = new createBranch(0.05, 0.15, 2);
+			var branch5 = new THREE.Mesh(branch5Geometry);
+			branch5.position.set(-0.3 * radius, -0.1 * radius, -0.3 * radius);
+			branch5.rotation.set(0, -0.9, 0.4);
+			branch5.updateMatrix();
+			BRANCH.merge(branch5.geometry, branch5.matrix);
+		}
+
+		return BRANCH;
+	}
+
 	function BowlGeometry(radius, segments) {
 		var radius = radius || 1;
 		var segments = segments || 10;
@@ -1397,6 +1588,7 @@
 	window.FRUITPANORAMA = {};
 	window.FRUITPANORAMA.GRAPE = GRAPEPANORAMA;
 	window.FRUITPANORAMA.CHERRY = CHERRYPANORAMA;
+	window.FRUITPANORAMA.APPLEBRANCH = APPLEBRANCHPANORAMA;
 	window.FRUITPANORAMA.FRUITBOWL = FRUITBOWLPANORAMA;
 	window.FRUITPANORAMA.CUSTOM = CUSTOMPANORAMA;
 
