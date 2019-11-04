@@ -44,6 +44,7 @@
 		var camera = new THREE.PerspectiveCamera(75, _this.width / _this.height, 0.01, 1000);
 		var loadingManager = new THREE.LoadingManager();
 		var preloader = null;
+		var onLoadingErrorCounter = 0;
 		var THEFRUIT = new THREE.Object3D();
 		var SPHERES = new THREE.Object3D();
 		var EXTRAS = new THREE.Object3D();
@@ -93,15 +94,17 @@
 
 		this.addToInit = function() {};
 		this.addToRender = function() {};
+		this.loadingManagerOnProgress = function() {};
+		this.loadingManagerOnLoad = function() {};
 
 		this.init = function() {
 			_this.container.innerHTML = '';
 			_this.container.className = 'fruitpano-container';
 			if (_this.enablePreloader){
 				createPreloader();
-				loadingManager.onProgress = preloaderOnProgress;
-				loadingManager.onLoad = preloaderOnLoad;
 			}
+			loadingManager.onProgress = onProgress;
+			loadingManager.onLoad = onLoad;
 			loadingManager.onError = onLoadingError;
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
@@ -158,24 +161,35 @@
 			renderer.render(scene, camera);
 		}
 
-		function preloaderOnProgress(url, loaded, total) {
+		function onProgress(url, loaded, total) {
 			var nOfLoaded = (loaded / total) * 100;
-			var progress = preloader.getElementsByClassName('fruitpano-progress');
-			var percentage = preloader.getElementsByClassName('fruitpano-progress-percentage');
-			progress[0].style.width = parseInt(nOfLoaded) + '%';
-			percentage[0].innerHTML = parseInt(nOfLoaded) + '%';
+			if (preloader){
+				var progress = preloader.getElementsByClassName('fruitpano-progress');
+				var percentage = preloader.getElementsByClassName('fruitpano-progress-percentage');
+				progress[0].style.width = parseInt(nOfLoaded) + '%';
+				percentage[0].innerHTML = parseInt(nOfLoaded) + '%';
+			}
+			_this.loadingManagerOnProgress(url, loaded, total, parseInt(nOfLoaded));
 		}
 
-		function preloaderOnLoad() {
-			preloader.className += ' fruitpano-preloader-fadeout';
-			preloader.addEventListener('animationend', function() {
-				_this.container.removeChild(preloader);
-			});
+		function onLoad() {
+			if (preloader){
+				preloader.className += ' fruitpano-preloader-fadeout';
+				preloader.addEventListener('animationend', function() {
+					_this.container.removeChild(preloader);
+				});
+			}
+			_this.loadingManagerOnLoad();
 		}
 
 		function onLoadingError() {
-			console.warn('An error occurred loading items! Scene loaded again...');
-			_this.reset();
+			if (onLoadingErrorCounter < 5){
+				console.warn('An error occurred loading items! Scene loaded again...');
+				_this.reset();
+			} else {
+				console.error('Too many error occurred loading items!');
+			}
+			onLoadingErrorCounter++;
 		}
 
 		this.reset = function() {
@@ -742,7 +756,9 @@
 					_this.cameraDistance = value;
 					cameraDistance = value;
 					var bg = scene.getObjectByName('background');
-					bg.geometry = new THREE.SphereGeometry(_this.cameraDistance * 10, _this.segments, _this.segments);
+					if (bg){
+						bg.geometry = new THREE.SphereGeometry(_this.cameraDistance * 10, _this.segments, _this.segments);
+					}
 				}
 			},
 			setAutoRotate:{
