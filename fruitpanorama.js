@@ -108,6 +108,8 @@
 			loadingManager.onError = onLoadingError;
 			renderer.setSize(_this.width, _this.height);
 			_this.container.appendChild(renderer.domElement);
+			SPHERES.name = 'SPHERES';
+			EXTRAS.name = 'EXTRAS';
 			THEFRUIT.add(SPHERES, EXTRAS);
 			scene.add(THEFRUIT);
 			createBackground();
@@ -713,8 +715,10 @@
 					}
 					mesh.material.color = new THREE.Color(1, 1, 1);
 					if (mesh.material.map){
-						mesh.material.map.image.src = texture;
-						mesh.material.map.needsUpdate = true;
+						if (mesh.material.map.image){
+							mesh.material.map.image.src = texture;
+							mesh.material.map.needsUpdate = true;
+						}
 					} else {
 						mesh.material.map = new THREE.TextureLoader(loadingManager).load(texture);
 						mesh.material.needsUpdate = true;
@@ -1165,13 +1169,13 @@
 			for (var i = 0; i < _this.images.length; i++){
 				var fruit = _this.createFruit(i);
 				if (_this.fruitsPositions[i]){
-					var x = _this.fruitsPositions[i] && _this.fruitsPositions[i][0] ? _this.fruitsPositions[i][0] : 0;
-					var y = _this.fruitsPositions[i] && _this.fruitsPositions[i][1] ? _this.fruitsPositions[i][1] : 0;
-					var z = _this.fruitsPositions[i] && _this.fruitsPositions[i][2] ? _this.fruitsPositions[i][2] : 0;
-					var scale = _this.fruitsScales[i] ? _this.fruitsScales[i] : 1;
+					var x = _this.fruitsPositions[i][0] ? _this.fruitsPositions[i][0] : 0;
+					var y = _this.fruitsPositions[i][1] ? _this.fruitsPositions[i][1] : 0;
+					var z = _this.fruitsPositions[i][2] ? _this.fruitsPositions[i][2] : 0;
 					fruit.position.set(x, y, z);
-					fruit.scale.set(scale, scale, scale);
 				}
+				var scale = _this.fruitsScales[i] ? _this.fruitsScales[i] : 1;
+				fruit.scale.set(scale, scale, scale);
 				_this.SPHERES.add(fruit);
 			}
 		}
@@ -1219,41 +1223,55 @@
 				grapeLeaf:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
-					return new GrapeLeafGeometry(radius, _this.segments);
+					var geometry = new GrapeLeafGeometry(radius, _this.segments);
+					geometry.type = 'grapeLeaf';
+					return geometry;
 				},
 				cherryLeaf:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
-					return new CherryLeafGeometry(radius, _this.segments);
+					var geometry = new CherryLeafGeometry(radius, _this.segments);
+					geometry.type = 'cherryLeaf';
+					return geometry;
 				},
 				appleLeaf:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
-					return new AppleLeafGeometry(radius, _this.segments);
+					var geometry = new AppleLeafGeometry(radius, _this.segments);
+					geometry.type = 'appleLeaf';
+					return geometry;
 				},
 				treeBranch:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius || null;
 					var branchNumber = atts.branchNumber || null;
-					return new TreeBranchGeometry(radius, _this.segments, branchNumber);
+					var geometry = new TreeBranchGeometry(radius, _this.segments, branchNumber);
+					geometry.type = 'treeBranch';
+					return geometry;
 				},
 				bowl:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
-					return new BowlGeometry(radius, _this.segments);
+					var geometry = new BowlGeometry(radius, _this.segments);
+					geometry.type = 'bowl';
+					return geometry;
 				},
 				basket:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : null;
 					var height = atts.height ? atts.height : null;
-					return new BasketGeometry(radius, _this.segments, height);
+					var geometry = new BasketGeometry(radius, _this.segments, height);
+					geometry.type = 'basket';
+					return geometry;
 				},
 				box:function(atts) {
 					var atts = atts || {};
 					var width = atts.width ? atts.width : 1;
 					var height = atts.height ? atts.height : 1;
 					var depth = atts.depth ? atts.depth : 1;
-					return new THREE.BoxGeometry(width, height, depth);
+					var geometry = new THREE.BoxGeometry(width, height, depth);
+					geometry.type = 'box';
+					return geometry;
 				},
 				sphere:function(atts) {
 					var atts = atts || {};
@@ -1262,27 +1280,35 @@
 					var phiLength = atts.phiLength ? atts.phiLength : undefined;
 					var thetaStart = atts.thetaStart ? atts.thetaStart : undefined;
 					var thetaLength = atts.thetaLength ? atts.thetaLength : undefined;
-					return new THREE.SphereGeometry(radius, _this.segments, _this.segments, phiStart, phiLength, thetaStart, thetaLength);
+					var geometry = new THREE.SphereGeometry(radius, _this.segments, _this.segments, phiStart, phiLength, thetaStart, thetaLength);
+					geometry.type = 'sphere';
+					return geometry;
 				},
 				torus:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : 1;
 					var tube = atts.tube ? atts.tube : undefined;
 					var arc = atts.arc ? atts.arc : undefined;
-					return new THREE.TorusGeometry(radius, tube, _this.segments, _this.segments, arc);
+					var geometry = new THREE.TorusGeometry(radius, tube, _this.segments, _this.segments, arc);
+					geometry.type = 'torus';
+					return geometry;
 				},
 				plane:function(atts) {
 					var atts = atts || {};
 					var width = atts.width ? atts.width : 1;
 					var height = atts.height ? atts.height : 1;
-					return new THREE.PlaneGeometry(width, height);
+					var geometry = new THREE.PlaneGeometry(width, height);
+					geometry.type = 'plane';
+					return geometry;
 				},
 				circle:function(atts) {
 					var atts = atts || {};
 					var radius = atts.radius ? atts.radius : 1;
 					var thetaStart = atts.thetaStart ? atts.thetaStart : undefined;
 					var thetaLength = atts.thetaLength ? atts.thetaLength : undefined;
-					return new THREE.CircleGeometry(radius, _this.segments, thetaStart, thetaLength);
+					var geometry = new THREE.CircleGeometry(radius, _this.segments, thetaStart, thetaLength);
+					geometry.type = 'circle';
+					return geometry;
 				}
 			};
 			return choices;
@@ -1371,20 +1397,14 @@
 			var params = params || {};
 			if (!params.geometry)
 				return;
-			if (params.geometry == 'custom'){
-				createMeshFromOBJFile(params);
-			} else if (params.geometry == 'text'){
-				createTextObject(params);
-			} else {
-				var choices = geometryChoices();
-				var geometry = choices[params.geometry];
-				var geometry = new geometry(params.geometryParameters ? params.geometryParameters : {});
-				var material = new THREE.MeshBasicMaterial({
-					side:THREE.DoubleSide
-				});
-				var mesh = new THREE.Mesh(geometry, material);
-				_this.EXTRAS.add(mesh);
-			}
+			var choices = geometryChoices();
+			var geometry = choices[params.geometry];
+			var geometry = new geometry(params.geometryParameters ? params.geometryParameters : {});
+			var material = new THREE.MeshBasicMaterial({
+				side:THREE.DoubleSide
+			});
+			var mesh = new THREE.Mesh(geometry, material);
+			return mesh;
 		}
 
 		Object.defineProperty(this, 'getGeometryChoices', {
